@@ -1,0 +1,65 @@
+## Project Overview
+
+VersoZap is a microSaaS that sends daily Bible verses via WhatsApp. Users can configure preferences like Bible version, reading plan, and delivery time. The system automatically delivers verses as text and/or audio.
+
+## Architecture
+
+This is a multi-service architecture with separate repositories:
+
+```
+VERSOZAP/
+└── /apps
+     ├── frontend/                 # Public frontend (React + Vite + Tailwind)
+     ├── backend/                  # Backend (Python Flask + SQLite)
+     ├── versozap-sender/          # WhatsApp sender (Node.js + venom-bot)
+     └── admin/                    # Admin panel (React Router + Tailwind)
+```
+
+## Development Commands
+
+### Frontend (versozap-frontend-fixed/)
+```bash
+npm run dev        # Start development server
+npm run build      # Build for production
+npm run preview    # Preview production build
+```
+
+### Admin Panel (admin/)
+```bash
+npm run dev        # Start development server with HMR
+npm run build      # Build for production using React Router
+npm run typecheck  # Run TypeScript type checking
+npm run start      # Start production server
+```
+
+### Backend (versozap/)
+```bash
+python app.py      # Start Flask server
+```
+
+### Sender Service (versozap-sender-clean/)
+```bash
+npm start          # Start WhatsApp sender service
+```
+
+## Key Technologies
+
+- **Frontend**: React 18, Vite, TailwindCSS, React Router DOM
+- **Admin**: React Router 7, TypeScript, TailwindCSS 4
+- **Backend**: Flask, SQLAlchemy, APScheduler, gTTS
+- **Sender**: Express, venom-bot, CORS
+- **Database**: SQLite
+
+## System Flow
+
+1. **User Registration**: Email/Gmail/Facebook auth → user provides preferences
+2. **Daily Scheduling**: Flask backend uses APScheduler (checks every minute)
+3. **Content Generation**: Creates text and audio using gTTS
+4. **Message Delivery**: Sends via API to sender service → WhatsApp via venom-bot
+
+## Infrastructure
+
+- **Frontend**: Deployed on Vercel (app.versozap.com.br)
+- **Backend**: Deployed on Render
+- **Sender**: Deployed on Railway
+- **Database**: SQLite with SQLAlchemy ORM
