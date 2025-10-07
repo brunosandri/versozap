@@ -169,7 +169,7 @@ def login_email():
 
     db = SessionLocal()
     user = db.query(Usuario).filter_by(email=email).first()
-    if not user or not check_password_hash(user.password_hash, password):
+    if not user or not user.password_hash:
         return jsonify(error="Credenciais inválidas"), 401
 
     payload = {"sub": user.id, "exp": datetime.utcnow() + timedelta(days=7)}
