@@ -40,7 +40,7 @@ CORS(
                 "http://localhost:5175",
             ],
             "allow_headers": ["Content-Type", "Authorization"],
-            "methods": ["GET", "POST", "OPTIONS"],
+            "methods": ["GET", "POST", "PUT", "OPTIONS"],
         }
     },
     supports_credentials=False,  # não estamos usando cookies
@@ -55,7 +55,7 @@ def apply_cors_headers(resp):
         if origin and origin.startswith(("https://app.versozap.com.br", "http://localhost:517")):
             resp.headers["Access-Control-Allow-Origin"] = origin
             resp.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
-            resp.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS"
+            resp.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,OPTIONS"
     return resp
 
 # ---------------------------------------------------------------------------
@@ -601,7 +601,7 @@ def facebook_callback():
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
     return f"<script>window.location.href='{frontend_url}/sucesso?token={jwt_token}'</script>"
 
-@app.post("/api/auth/validate")
+@app.route("/api/auth/validate", methods=["GET", "POST"])
 def validar_token():
     """Valida token JWT"""
     auth_header = request.headers.get('Authorization')
@@ -616,7 +616,7 @@ def validar_token():
     
     return jsonify({"valid": True, "user_id": payload["sub"], "email": payload["email"]})
 
-@app.post("/api/user/update-profile")
+@app.route("/api/user/update-profile", methods=["POST", "PUT"])
 def atualizar_perfil_usuario():
     """Atualiza perfil do usuário com telefone e preferências"""
     auth_header = request.headers.get('Authorization')
@@ -662,6 +662,39 @@ def atualizar_perfil_usuario():
             "horario_envio": usuario.horario_envio
         }
     })
+@app.get("/api/user/profile")
+def obter_perfil_usuario():
+    """Retorna informações do perfil do usuário autenticado"""
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"erro": "Token não fornecido"}), 401
+
+    token = auth_header.split(' ')[1]
+    payload = auth_service.validate_jwt_token(token)
+
+    if not payload:
+        return jsonify({"erro": "Token inválido"}), 401
+
+    db = SessionLocal()
+    usuario = db.query(Usuario).filter_by(id=payload["sub"]).first()
+
+    if not usuario:
+        db.close()
+        return jsonify({"erro": "Usuário não encontrado"}), 404
+
+    perfil = {
+        "id": usuario.id,
+        "nome": usuario.nome,
+        "email": usuario.email,
+        "telefone": usuario.telefone,
+        "versao_biblia": usuario.versao_biblia,
+        "plano_leitura": usuario.plano_leitura,
+        "horario_envio": usuario.horario_envio,
+    }
+
+    db.close()
+
+    return jsonify({"usuario": perfil})
 
 # ---------------------------------------------------------------------------
 # Rotas de Administração (Logs e Database)
