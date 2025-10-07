@@ -616,86 +616,93 @@ def validar_token():
     
     return jsonify({"valid": True, "user_id": payload["sub"], "email": payload["email"]})
 
-@app.route("/api/user/update-profile", methods=["POST", "PUT"])
-def atualizar_perfil_usuario():
-    """Atualiza perfil do usuário com telefone e preferências"""
+def _obter_payload_autenticado():
+    """Recupera o payload do token JWT enviado pelo cliente."""
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
-        return jsonify({"erro": "Token não fornecido"}), 401
+        return None, jsonify({"erro": "Token não fornecido"}), 401
 
     token = auth_header.split(' ')[1]
     payload = auth_service.validate_jwt_token(token)
 
     if not payload:
-        return jsonify({"erro": "Token inválido"}), 401
+        return None, jsonify({"erro": "Token inválido ou expirado"}), 401
 
-    data = request.get_json() or {}
-    user_id = payload["sub"]
+    return payload, None, None
 
-    db = SessionLocal()
-    usuario = db.query(Usuario).filter_by(id=user_id).first()
-    if not usuario:
-        return jsonify({"erro": "Usuário não encontrado"}), 404
 
-    # Atualiza campos se fornecidos
-    if data.get("telefone"):
-        usuario.telefone = data["telefone"]
-    if data.get("versao_biblia"):
-        usuario.versao_biblia = data["versao_biblia"]
-    if data.get("plano_leitura"):
-        usuario.plano_leitura = data["plano_leitura"]
-    if data.get("horario_envio"):
-        usuario.horario_envio = data["horario_envio"]
-
-    db.commit()
-    db.close()
-
-    return jsonify({
-        "mensagem": "Perfil atualizado com sucesso",
-        "usuario": {
-            "id": usuario.id,
-            "nome": usuario.nome,
-            "email": usuario.email,
-            "telefone": usuario.telefone,
-            "versao_biblia": usuario.versao_biblia,
-            "plano_leitura": usuario.plano_leitura,
-            "horario_envio": usuario.horario_envio
-        }
-    })
 @app.get("/api/user/profile")
 def obter_perfil_usuario():
-    """Retorna informações do perfil do usuário autenticado"""
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        return jsonify({"erro": "Token não fornecido"}), 401
-
-    token = auth_header.split(' ')[1]
-    payload = auth_service.validate_jwt_token(token)
-
-    if not payload:
-        return jsonify({"erro": "Token inválido"}), 401
+    """Retorna os dados do usuário autenticado."""
+    payload, erro, status = _obter_payload_autenticado()
+    if erro:
+        return erro, status
 
     db = SessionLocal()
-    usuario = db.query(Usuario).filter_by(id=payload["sub"]).first()
-
-    if not usuario:
+    try:
+        usuario = db.query(Usuario).filter_by(id=payload["sub"]).first()
+        if not usuario:
+            return jsonify({"erro": "Usuário não encontrado"}), 404
+        
+        return jsonify({
+            "usuario": {
+                "id": usuario.id,
+                "nome": usuario.nome,
+                "email": usuario.email,
+                "telefone": usuario.telefone,
+                "versao_biblia": usuario.versao_biblia,
+                "plano_leitura": usuario.plano_leitura,
+                "horario_envio": usuario.horario_envio,
+            }
+        })
+    finally:
         db.close()
-        return jsonify({"erro": "Usuário não encontrado"}), 404
 
-    perfil = {
-        "id": usuario.id,
-        "nome": usuario.nome,
-        "email": usuario.email,
-        "telefone": usuario.telefone,
-        "versao_biblia": usuario.versao_biblia,
-        "plano_leitura": usuario.plano_leitura,
-        "horario_envio": usuario.horario_envio,
-    }
 
-    db.close()
+@app.post("/api/user/update-profile")
+def atualizar_perfil_usuario():
+    """Atualiza perfil do usuário com telefone e preferências"""
+    payload, erro, status = _obter_payload_autenticado()
+    if erro:
+        return erro, status
 
-    return jsonify({"usuario": perfil})
+    data = request.get_json() or {}
 
+    db = SessionLocal()
+    try:
+        usuario_db = db.query(Usuario).filter_by(id=payload["sub"]).first()
+        if not usuario_db:
+            return jsonify({"erro": "Usuário não encontrado"}), 404
+
+        # Atualiza campos se fornecidos
+        if data.get("nome"):
+            usuario_db.nome = data["nome"]
+        if data.get("telefone"):
+            usuario_db.telefone = data["telefone"]
+        if data.get("versao_biblia"):
+            usuario_db.versao_biblia = data["versao_biblia"]
+        if data.get("plano_leitura"):
+            usuario_db.plano_leitura = data["plano_leitura"]
+        if data.get("horario_envio"):
+            usuario_db.horario_envio = data["horario_envio"]
+
+        db.commit()
+
+        return jsonify({
+            "mensagem": "Perfil atualizado com sucesso",
+            "usuario": {
+                "id": usuario_db.id,
+                "nome": usuario_db.nome,
+                "email": usuario_db.email,
+                "telefone": usuario_db.telefone,
+                "versao_biblia": usuario_db.versao_biblia,
+                "plano_leitura": usuario_db.plano_leitura,
+                "horario_envio": usuario_db.horario_envio
+            }
+        })
+    finally:
+        db.close()
+        
 # ---------------------------------------------------------------------------
 # Rotas de Administração (Logs e Database)
 # ---------------------------------------------------------------------------
