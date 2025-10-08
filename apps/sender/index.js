@@ -8,6 +8,44 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const senderAuthToken = process.env.SENDER_AUTH_TOKEN || process.env.AUTH_TOKEN || null;
+
+function extractAuthToken(req) {
+  const headerToken = req.headers['x-api-key'];
+  const authorization = req.headers['authorization'];
+
+  if (typeof headerToken === 'string' && headerToken.trim().length > 0) {
+    return headerToken.trim();
+  }
+
+  if (typeof authorization === 'string') {
+    const trimmed = authorization.trim();
+    if (trimmed.toLowerCase().startsWith('bearer ')) {
+      return trimmed.slice(7);
+    }
+    return trimmed;
+  }
+
+  return null;
+}
+
+function requireAuth(req, res, next) {
+  if (!senderAuthToken) {
+    return next();
+  }
+
+  const providedToken = extractAuthToken(req);
+
+  if (!providedToken || providedToken !== senderAuthToken) {
+    return res.status(401).json({
+      erro: 'Credenciais inválidas para o serviço Sender',
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  return next();
+}
+
 let client = null;
 let connectionStatus = 'initializing';
 let lastMessageTime = Date.now();
@@ -233,7 +271,7 @@ app.get('/', (req, res) => {
   });
 });
 
-app.post('/enviar', async (req, res) => {
+app.post('/enviar', requireAuth, async (req, res) => {
   const { telefone, mensagem, audio } = req.body;
 
   if (!telefone || !mensagem) {
@@ -301,7 +339,7 @@ app.post('/enviar', async (req, res) => {
 });
 
 // Nova rota para envio de áudio específico
-app.post('/enviar-audio', async (req, res) => {
+app.post('/enviar-audio', requireAuth, async (req, res) => {
   const { telefone, audioPath, mensagem } = req.body;
 
   if (!telefone || !audioPath) {
@@ -363,7 +401,7 @@ app.get('/status', (req, res) => {
 });
 
 // Rota para limpar a fila (apenas para admin)
-app.post('/clear-queue', (req, res) => {
+app.post('/clear-queue', requireAuth, (req, res) => {
   const clearedCount = messageQueue.length;
   messageQueue = [];
   
@@ -410,7 +448,7 @@ app.get('/qrcode', (req, res) => {
 });
 
 // Rota para reconectar manualmente
-app.post('/reconnect', async (req, res) => {
+app.post('/reconnect', requireAuth, async (req, res) => {
   try {
     if (client) {
       await client.close();

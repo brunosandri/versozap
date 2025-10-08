@@ -22,6 +22,7 @@ load_dotenv()
 app_start_time = time.time()
 
 SENDER_URL = os.getenv("SENDER_URL")
+SENDER_AUTH_TOKEN = os.getenv("SENDER_AUTH_TOKEN")
 DATABASE_URL = os.getenv("DATABASE_URL")
 SECRET_KEY = os.getenv("SECRET_KEY", "versozap-dev")  # troque em produção
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -95,6 +96,13 @@ def gerar_audio_versiculo(texto: str, nome_arquivo: str) -> str:
 # Jobs de agendamento
 # ---------------------------------------------------------------------------
 
+def _sender_headers():
+    headers = {"Content-Type": "application/json"}
+    if SENDER_AUTH_TOKEN:
+        headers["Authorization"] = f"Bearer {SENDER_AUTH_TOKEN}"
+    return headers
+
+
 def enviar_leitura_diaria():
     db = SessionLocal()
     usuarios = db.query(Usuario).all()
@@ -136,6 +144,7 @@ def enviar_leitura_diaria():
                         "mensagem": mensagem,
                         "audio": caminho_audio,
                     },
+                    headers=_sender_headers(),
                 )
             except Exception as e:
                 print(f"[Erro WhatsApp] {usuario.nome}: {e}")
@@ -278,11 +287,15 @@ def enviar_leitura():
 
     try:
         mensagem = f"🙏 Olá {usuario.nome}, sua leitura bíblica:\n\n{leitura_info['texto']}"
-        requests.post(SENDER_URL, json={
-            "telefone": usuario.telefone,
-            "mensagem": mensagem,
-            "audio": caminho_audio,
-        })
+        requests.post(
+            SENDER_URL,
+            json={
+                "telefone": usuario.telefone,
+                "mensagem": mensagem,
+                "audio": caminho_audio,
+            },
+            headers=_sender_headers(),
+        )
     except Exception as e:
         print("Erro ao enviar mensagem via WhatsApp:", e)
 
