@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://versozap-backend.onrender.com';
+
 export default function CompletarCadastro() {
   const [form, setForm] = useState({
     telefone: '',
@@ -30,7 +32,7 @@ export default function CompletarCadastro() {
 
   const validateTokenAndGetUser = async (token) => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/validate`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/validate`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -73,7 +75,7 @@ export default function CompletarCadastro() {
       const token = localStorage.getItem('versozap_token');
 
       // Atualiza perfil do usuário com telefone e preferências
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/user/update-profile`, {
+      const response = await fetch(`${API_BASE_URL}/api/user/update-profile`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
