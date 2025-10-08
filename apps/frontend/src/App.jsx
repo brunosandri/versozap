@@ -11,7 +11,8 @@ import CompletarCadastro from './pages/CompletarCadastro';
 import ConfigurarWhatsapp from './pages/ConfigurarWhatsapp';
 import Dashboard from './pages/Dashboard';
 import SucessoPage from './pages/SucessoPage';
-
+import TermosPage from './pages/TermosPage';
+import PrivacidadePage from './pages/PrivacidadePage';
 
 export default function App() {
   return (
@@ -27,6 +28,8 @@ export default function App() {
       <Route path='/configurar-whatsapp' element={<ConfigurarWhatsapp />} />
       <Route path='/dashboard' element={<Dashboard />} />
       <Route path='/sucesso' element={<SucessoPage />} />
+      <Route path='/termos' element={<TermosPage />} />
+      <Route path='/privacidade' element={<PrivacidadePage />} />
     </Routes>
   );
 }

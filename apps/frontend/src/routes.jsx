@@ -12,6 +12,8 @@ import QrCodePage from './pages/QrCodePage';
 import Dashboard from './pages/Dashboard';
 import ConfigurarWhatsapp from './pages/ConfigurarWhatsapp';
 import CompletarCadastro from './pages/CompletarCadastro';
+import TermosPage from './pages/TermosPage';
+import PrivacidadePage from './pages/PrivacidadePage';
 
 export default function AppRoutes() {
   return (
@@ -29,6 +31,8 @@ export default function AppRoutes() {
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/configurar-whatsapp" element={<ConfigurarWhatsapp />} />
       <Route path="/completar-cadastro" element={<CompletarCadastro />} />
+      <Route path="/termos" element={<TermosPage />} />
+      <Route path="/privacidade" element={<PrivacidadePage />} />
     </Routes>
   );
 }

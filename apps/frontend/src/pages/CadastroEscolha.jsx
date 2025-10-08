@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from 'react-router-dom';
 import axios from "axios";
 
 export default function CadastroEscolha() {
@@ -12,6 +13,8 @@ export default function CadastroEscolha() {
   });
 
   const [mensagem, setMensagem] = useState("");
+  const [erro, setErro] = useState("");
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -19,14 +22,22 @@ export default function CadastroEscolha() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setMensagem("");
+    setErro("");
+    
     try {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/register-phone`, form);
+      const response = await axios.post(`${import.meta.env.VITE_API_URL || ''}/api/register-phone`, form);
       setMensagem("Cadastro realizado com sucesso!");
       console.log(response.data);
-      window.location.href = "/configurar-whatsapp"; // Redireciona para configurar WhatsApp
+      // Mantém a navegação dentro do SPA para evitar telas em branco no deploy
+      setTimeout(() => navigate("/configurar-whatsapp"), 600);
     } catch (err) {
-      setMensagem("Erro ao cadastrar usuário");
       console.error(err);
+      if (err.response?.data?.error) {
+        setErro(err.response.data.error);
+      } else {
+        setErro("Erro ao cadastrar usuário. Tente novamente.");
+      }
     }
   };
 
@@ -62,7 +73,8 @@ export default function CadastroEscolha() {
         </button>
       </form>
 
-      {mensagem && <p className="mt-4 text-center text-sm text-gray-700">{mensagem}</p>}
+      {mensagem && <p className="mt-4 text-center text-sm text-emerald-600">{mensagem}</p>}
+      {erro && <p className="mt-2 text-center text-sm text-red-500">{erro}</p>}
     </div>
   );
 }
