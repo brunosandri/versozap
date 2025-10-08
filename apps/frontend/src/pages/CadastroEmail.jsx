@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { apiUrl, parseJsonResponse } from '../utils/api';
 
 export default function CadastroEmail() {
   const [form, setForm] = useState({ email: '', password: '', confirm: '' });
@@ -31,32 +32,28 @@ export default function CadastroEmail() {
 
     setLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/register`, {
+      const res = await fetch(apiUrl('/api/register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: form.email, password: form.password }),
       });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Falha no cadastro');
-      }
+      await parseJsonResponse(res);
 
       // Após cadastro bem-sucedido, faz login automático
-      const loginRes = await fetch(`${import.meta.env.VITE_API_URL}/api/login`, {
+      const loginRes = await fetch(apiUrl('/api/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: form.email, password: form.password }),
       });
+      const loginData = await parseJsonResponse(loginRes);
+      const { token } = loginData;
 
-      if (loginRes.ok) {
-        const { token } = await loginRes.json();
-        localStorage.setItem('versozap_token', token);
-        navigate('/completar-cadastro');
-      } else {
-        const loginError = await loginRes.json();
-        throw new Error(loginError.error || 'Erro no login automático');
+      if (!token) {
+        throw new Error('Resposta inválida do servidor.');
       }
+
+      localStorage.setItem('versozap_token', token);
+      navigate('/completar-cadastro');
     } catch (err) {
       console.error('Erro no cadastro:', err);
       if (err.name === 'TypeError' && err.message.includes('fetch')) {

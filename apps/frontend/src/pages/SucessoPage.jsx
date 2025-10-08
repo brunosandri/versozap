@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { apiUrl, parseJsonResponse } from '../utils/api';
 
 export default function SucessoPage() {
   const [searchParams] = useSearchParams();
@@ -34,31 +35,28 @@ export default function SucessoPage() {
 
   const validateToken = async (token) => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/validate`, {
+      const response = await fetch(apiUrl('/api/auth/validate'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
+      const data = await parseJsonResponse(response);
+      const userInfo = {
+        id: data.user_id,
+        email: data.email
+      };
 
-      if (response.ok) {
-        const data = await response.json();
-        const userInfo = {
-          id: data.user_id,
-          email: data.email
-        };
-
-        localStorage.setItem('versozap_user', JSON.stringify(userInfo));
-        setUser(userInfo);
-      } else {
-        // Token inválido, limpa e redireciona
-        localStorage.removeItem('versozap_token');
-        localStorage.removeItem('versozap_user');
-        navigate('/login');
-      }
+      localStorage.setItem('versozap_user', JSON.stringify(userInfo));
+      setUser(userInfo);
     } catch (error) {
       console.error('Erro ao validar token:', error);
+      localStorage.removeItem('versozap_token');
+      localStorage.removeItem('versozap_user');
+      if (error.name === 'TypeError') {
+        console.error('Falha de conexão com a API.');
+      }
       navigate('/login');
     } finally {
       setLoading(false);

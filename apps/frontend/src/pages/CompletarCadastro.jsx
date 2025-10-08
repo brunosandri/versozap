@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://versozap-backend.onrender.com';
+import { apiUrl, parseJsonResponse } from '../utils/api';
 
 export default function CompletarCadastro() {
   const [form, setForm] = useState({
@@ -50,28 +49,25 @@ export default function CompletarCadastro() {
 
   const validateTokenAndGetUser = async (token) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/validate`, {
+      const response = await fetch(apiUrl('/api/auth/validate'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        const parsedUser = data?.user || data;
-        setUserInfo(parsedUser);
-        try {
-          localStorage.setItem('versozap_user', JSON.stringify(parsedUser));
+      const data = await parseJsonResponse(response);
+      const parsedUser = data?.user || data;
+      setUserInfo(parsedUser);
+      try {
+        localStorage.setItem('versozap_user', JSON.stringify(parsedUser));
+      } catch (error) {
+        console.error('Erro ao salvar usuário no armazenamento local:', error);
+      }
         } catch (error) {
           console.error('Erro ao salvar usuário no armazenamento local:', error);
-        }
-      } else {
-        const errorBody = await response.json().catch(() => ({}));
-        const message = errorBody?.error || 'Não foi possível validar sua sessão.';
-        setErrors({ api: message });
-        navigate('/login');
-      }
-    } catch (error) {
-      console.error('Erro ao validar token:', error);
-      setErrors({ api: 'Erro de conexão. Tente novamente mais tarde.' });
+        const message =
+        error.name === 'TypeError'
+          ? 'Erro de conexão. Verifique se o backend está rodando.'
+          : error.message;
+      setErrors({ api: message });
+      navigate('/login');
     }
     setIsValidatingToken(false);
   };
@@ -103,7 +99,7 @@ export default function CompletarCadastro() {
       const token = localStorage.getItem('versozap_token');
 
       // Atualiza perfil do usuário com telefone e preferências
-      const response = await fetch(`${API_BASE_URL}/api/user/update-profile`, {
+      const response = await fetch(apiUrl('/api/user/update-profile'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -116,16 +112,16 @@ export default function CompletarCadastro() {
           horario_envio: form.horario_envio
         }),
       });
-
-      if (!response.ok) {
-        const { error } = await response.json();
-        throw new Error(error || 'Erro ao salvar dados');
-      }
+      await parseJsonResponse(response);
 
       // Redireciona para configurar WhatsApp
       navigate('/configurar-whatsapp');
     } catch (err) {
-      setErrors({ api: err.message });
+      const message =
+        err.name === 'TypeError'
+          ? 'Erro de conexão. Verifique se o backend está rodando.'
+          : err.message;
+      setErrors({ api: message });
     } finally {
       setLoading(false);
     }
@@ -173,7 +169,7 @@ export default function CompletarCadastro() {
             </p>
           </div>
 
-           {errors.api && (
+          {errors.api && (
             <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm mb-4">
               {errors.api}
             </div>

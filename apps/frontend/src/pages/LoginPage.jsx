@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { apiUrl, parseJsonResponse } from '../utils/api';
 
 export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' });
@@ -34,18 +35,16 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/login`, {
+      const res = await fetch(apiUrl('/api/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: form.email, password: form.password }),
       });
+      const { token, user } = await parseJsonResponse(res);
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Credenciais inválidas');
+      if (!token || !user) {
+        throw new Error('Resposta inválida do servidor.');
       }
-
-      const { token, user } = await res.json();
 
       // Salva token e dados do usuário
       localStorage.setItem('versozap_token', token);
@@ -143,7 +142,7 @@ export default function LoginPage() {
             <div className="space-y-3">
               <button
                 type="button"
-                onClick={() => window.location.href = `${import.meta.env.VITE_API_URL}/api/auth/google/callback`}
+                onClick={() => window.location.href = apiUrl('/api/auth/google/callback')}
                 className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
               >
                 <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
@@ -157,7 +156,7 @@ export default function LoginPage() {
 
               <button
                 type="button"
-                onClick={() => window.location.href = `${import.meta.env.VITE_API_URL}/api/auth/facebook/callback`}
+                onClick={() => window.location.href = apiUrl('/api/auth/facebook/callback')}
                 className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
               >
                 <svg className="w-5 h-5 mr-2" fill="#1877F2" viewBox="0 0 24 24">

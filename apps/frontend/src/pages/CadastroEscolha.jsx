@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from 'react-router-dom';
 import axios from "axios";
+import { apiUrl } from "../utils/api";
 
 export default function CadastroEscolha() {
   const [form, setForm] = useState({
@@ -26,7 +27,7 @@ export default function CadastroEscolha() {
     setErro("");
     
     try {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL || ''}/api/register-phone`, form);
+      const response = await axios.post(apiUrl('/api/register-phone'), form);
       setMensagem("Cadastro realizado com sucesso!");
       console.log(response.data);
       // Mantém a navegação dentro do SPA para evitar telas em branco no deploy
