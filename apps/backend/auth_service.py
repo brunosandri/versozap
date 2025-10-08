@@ -123,7 +123,7 @@ class AuthService:
             str: Token JWT
         """
         payload = {
-            'sub': user_id,
+            'sub': str(user_id),
             'email': email,
             'provider': provider,
             'iat': datetime.utcnow(),
@@ -144,6 +144,12 @@ class AuthService:
         """
         try:
             payload = jwt.decode(token, self.jwt_secret, algorithms=['HS256'])
+
+            if 'sub' in payload:
+                try:
+                    payload['sub'] = int(payload['sub'])
+                except (TypeError, ValueError):
+                    pass
             return payload
         except jwt.ExpiredSignatureError:
             return None

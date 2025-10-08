@@ -6,7 +6,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from gtts import gTTS
 from datetime import datetime, timedelta, date
 from werkzeug.security import generate_password_hash, check_password_hash
-import jwt, os, re, requests, time
+import os, re, requests, time
 from dotenv import load_dotenv
 from bible_service import biblia_service, obter_trecho_do_dia
 from auth_service import auth_service
@@ -172,8 +172,7 @@ def login_email():
     if not user or not user.password_hash:
         return jsonify(error="Credenciais inválidas"), 401
 
-    payload = {"sub": user.id, "exp": datetime.utcnow() + timedelta(days=7)}
-    token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+    token = auth_service.generate_jwt_token(user.id, user.email, provider="email")
 
     return jsonify(token=token, user={"id": user.id, "nome": user.nome}), 200
 
@@ -614,7 +613,18 @@ def validar_token():
     if not payload:
         return jsonify({"erro": "Token inválido ou expirado"}), 401
     
-    return jsonify({"valid": True, "user_id": payload["sub"], "email": payload["email"]})
+    email = payload.get("email")
+    if not email:
+        db = SessionLocal()
+        try:
+            usuario = db.query(Usuario).filter_by(id=payload["sub"]).first()
+            if not usuario:
+                return jsonify({"erro": "Usuário não encontrado"}), 404
+            email = usuario.email
+        finally:
+            db.close()
+
+    return jsonify({"valid": True, "user_id": payload["sub"], "email": email})
 
 def _obter_payload_autenticado():
     """Recupera o payload do token JWT enviado pelo cliente."""
