@@ -29,7 +29,7 @@ EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 def _load_frontend_origins() -> list[str]:
     """Carrega os domínios permitidos para o frontend."""
-    default_frontend = "https://versozap.vercel.app"
+    default_frontend = "https://https://app.versozap.com.br/"
 
     # Permite sobrescrever por meio de variável de ambiente, suportando múltiplos domínios
     # separados por vírgula (ex.: "https://app...,http://localhost:5173").
