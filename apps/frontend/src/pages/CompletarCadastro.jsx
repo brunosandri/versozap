@@ -12,23 +12,41 @@ export default function CompletarCadastro() {
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
-  const [userInfo, setUserInfo] = useState(null);
+  const [userInfo, setUserInfo] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedUser = localStorage.getItem('versozap_user');
+      if (savedUser) {
+        try {
+          return JSON.parse(savedUser);
+        } catch (error) {
+          console.error('Erro ao ler usuário do armazenamento local:', error);
+        }
+      }
+    }
+    return null;
+  });
+  const [isValidatingToken, setIsValidatingToken] = useState(true);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
     // Verifica se há token na URL (de auth social) ou localStorage
-    const token = searchParams.get('token') || localStorage.getItem('versozap_token');
+    const tokenFromUrl = searchParams.get('token');
+    const storedToken = localStorage.getItem('versozap_token');
+    const token = tokenFromUrl || storedToken;
 
     if (!token) {
+      setErrors({ api: 'Sua sessão expirou. Faça login novamente.' });
+      setIsValidatingToken(false);
       navigate('/login');
       return;
     }
 
     // Salva token e valida
     localStorage.setItem('versozap_token', token);
+    setIsValidatingToken(true);
     validateTokenAndGetUser(token);
-  }, []);
+  }, [navigate, searchParams]);
 
   const validateTokenAndGetUser = async (token) => {
     try {
@@ -38,14 +56,24 @@ export default function CompletarCadastro() {
 
       if (response.ok) {
         const data = await response.json();
-        setUserInfo(data);
+        const parsedUser = data?.user || data;
+        setUserInfo(parsedUser);
+        try {
+          localStorage.setItem('versozap_user', JSON.stringify(parsedUser));
+        } catch (error) {
+          console.error('Erro ao salvar usuário no armazenamento local:', error);
+        }
       } else {
+        const errorBody = await response.json().catch(() => ({}));
+        const message = errorBody?.error || 'Não foi possível validar sua sessão.';
+        setErrors({ api: message });
         navigate('/login');
       }
     } catch (error) {
       console.error('Erro ao validar token:', error);
-      navigate('/login');
+      setErrors({ api: 'Erro de conexão. Tente novamente mais tarde.' });
     }
+    setIsValidatingToken(false);
   };
 
   const handleChange = (e) => {
@@ -117,7 +145,7 @@ export default function CompletarCadastro() {
     setForm({ ...form, telefone: formatted });
   };
 
-  if (!userInfo) {
+  if (isValidatingToken) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full"></div>
@@ -131,7 +159,7 @@ export default function CompletarCadastro() {
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <img src="/imagens/logoversozap.png" className="h-8" alt="Logo Versozap" />
           <span className="text-sm text-gray-600">
-            Olá, {userInfo.email}
+            Olá, {userInfo?.email || 'bem-vindo(a)'}
           </span>
         </div>
       </header>
@@ -144,6 +172,12 @@ export default function CompletarCadastro() {
               Só mais alguns dados para personalizar sua experiência
             </p>
           </div>
+
+           {errors.api && (
+            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm mb-4">
+              {errors.api}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -220,9 +254,6 @@ export default function CompletarCadastro() {
               {loading ? 'Salvando...' : 'Continuar para WhatsApp'}
             </button>
 
-            {errors.api && (
-              <p className="text-red-500 text-sm text-center">{errors.api}</p>
-            )}
           </form>
         </div>
       </main>
