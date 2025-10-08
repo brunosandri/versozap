@@ -9,10 +9,13 @@ app.use(cors());
 app.use(express.json());
 
 let client = null;
-let connectionStatus = 'disconnected';
+let connectionStatus = 'initializing';
 let lastMessageTime = Date.now();
 let messageQueue = [];
 let isProcessingQueue = false;
+let lastQrCode = null;
+let lastQrCodeTimestamp = null;
+let lastQrCodeAttempts = 0;
 
 // Configurações
 const config = {
@@ -28,11 +31,21 @@ venom
     multidevice: true,
     headless: true,
     disableSpins: true,
-    logQR: false
+    logQR: false,
+    catchQR: (base64Qr, asciiQR, attempts) => {
+      lastQrCode = base64Qr;
+      lastQrCodeAttempts = attempts;
+      lastQrCodeTimestamp = new Date().toISOString();
+      connectionStatus = 'qrcode';
+      console.log('📸 Novo QR Code gerado (tentativa %d)', attempts);
+    }
   })
   .then((cli) => {
     client = cli;
     connectionStatus = 'connected';
+    lastQrCode = null;
+    lastQrCodeAttempts = 0;
+    lastQrCodeTimestamp = null;
     console.log('✅ Conectado ao WhatsApp!');
 
     // Processa fila de mensagens pendentes
@@ -49,7 +62,14 @@ venom
     // Monitor de estado da conexão
     client.onStateChange((state) => {
       console.log('Estado da conexão:', state);
-      connectionStatus = state === 'CONNECTED' ? 'connected' : 'disconnected';
+      if (state === 'CONNECTED') {
+        connectionStatus = 'connected';
+        lastQrCode = null;
+      } else if (state === 'OPENING' || state === 'PAIRING') {
+        connectionStatus = 'connecting';
+      } else {
+        connectionStatus = 'disconnected';
+      }
     });
 
     // Monitor de desconexão
@@ -208,6 +228,7 @@ app.get('/', (req, res) => {
     version: '2.0.0',
     uptime: process.uptime(),
     queueSize: messageQueue.length,
+    hasQrCode: !!lastQrCode,
     timestamp: new Date().toISOString()
   });
 });
@@ -355,34 +376,28 @@ app.post('/clear-queue', (req, res) => {
 
 const port = process.env.PORT || 3000;
 
-app.get('/qrcode', async (req, res) => {
+app.get('/qrcode', (req, res) => {
   try {
-    if (!client) {
-      return res.status(500).json({ 
-        erro: 'Cliente WhatsApp não iniciado ainda',
-        status: connectionStatus
-      });
-    }
-
     if (connectionStatus === 'connected') {
       return res.json({ 
         message: 'WhatsApp já está conectado',
         status: connectionStatus,
-        connectedSince: new Date(Date.now() - (process.uptime() * 1000)).toISOString()
+        connectedSince: new Date(Date.now() - process.uptime() * 1000).toISOString()
       });
     }
 
-    const base64 = await client.getQrCode();
-    if (!base64) {
-      return res.status(500).json({ 
-        erro: 'QR Code não disponível',
+    if (!lastQrCode) {
+      return res.status(202).json({
+        message: 'QR Code ainda não disponível, tente novamente em instantes',
         status: connectionStatus
       });
     }
 
-    return res.json({ 
-      qrCode: base64,
+    return res.json({
+      qrCode: lastQrCode,
       status: connectionStatus,
+      attempts: lastQrCodeAttempts,
+      generatedAt: lastQrCodeTimestamp,
       message: 'Escaneie o QR Code com seu WhatsApp'
     });
   } catch (error) {
