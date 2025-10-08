@@ -26,19 +26,41 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 SECRET_KEY = os.getenv("SECRET_KEY", "versozap-dev")  # troque em produção
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
+
+def _load_frontend_origins() -> list[str]:
+    """Carrega os domínios permitidos para o frontend."""
+    default_frontend = "https://versozap.vercel.app"
+
+    # Permite sobrescrever por meio de variável de ambiente, suportando múltiplos domínios
+    # separados por vírgula (ex.: "https://app...,http://localhost:5173").
+    env_value = os.getenv("FRONTEND_URL", "").strip()
+    if env_value:
+        values = [origin.strip() for origin in env_value.split(",") if origin.strip()]
+        if values:
+            return values
+
+    return [default_frontend]
+
+
+FRONTEND_ORIGINS = _load_frontend_origins()
+PRIMARY_FRONTEND_URL = FRONTEND_ORIGINS[0]
+
 app = Flask(__name__)
 
-# CORS detalhado — apenas rotas /api/* precisam e-mail/telefone
+# CORS detalhado — apenas rotas /api/* precisam e-mail/telef
+DEV_FRONTEND_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+]
+
+allowed_origins = list(dict.fromkeys(FRONTEND_ORIGINS + DEV_FRONTEND_ORIGINS))
+
 CORS(
     app,
     resources={
         r"/api/*": {
-            "origins": [
-                "https://app.versozap.com.br",
-                "http://localhost:5173",
-                "http://localhost:5174",
-                "http://localhost:5175",
-            ],
+           
             "allow_headers": ["Content-Type", "Authorization"],
             "methods": ["GET", "POST", "PUT", "OPTIONS"],
         }
@@ -52,7 +74,7 @@ def apply_cors_headers(resp):
     # Se o Flask‑CORS já adicionou, não duplicamos
     if "Access-Control-Allow-Origin" not in resp.headers:
         origin = request.headers.get("Origin")
-        if origin and origin.startswith(("https://app.versozap.com.br", "http://localhost:517")):
+        if origin and origin in allowed_origins:
             resp.headers["Access-Control-Allow-Origin"] = origin
             resp.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
             resp.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,OPTIONS"
@@ -515,8 +537,7 @@ def google_callback():
     error = request.args.get('error')
     
     if error:
-        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
-        return f"<script>window.location.href='{frontend_url}/login?error={error}'</script>"
+        return f"<script>window.location.href='{PRIMARY_FRONTEND_URL}/login?error=auth_failed'</script>"
     
     if not code:
         return jsonify({"erro": "Código de autorização não fornecido"}), 400
@@ -524,8 +545,8 @@ def google_callback():
     # Troca código por token
     user_info = auth_service.exchange_google_code(code)
     if not user_info:
-        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
-        return f"<script>window.location.href='{frontend_url}/login?error=auth_failed'</script>"
+        return f"<script>window.location.href='{PRIMARY_FRONTEND_URL}/login?error=auth_failed'</script>"
+
     
     # Processa usuário e redireciona para o frontend com token
     db = SessionLocal()
@@ -550,9 +571,7 @@ def google_callback():
     )
     
     db.close()
-    
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
-    return f"<script>window.location.href='{frontend_url}/sucesso?token={jwt_token}'</script>"
+    return f"<script>window.location.href='{PRIMARY_FRONTEND_URL}/sucesso?token={jwt_token}'</script>"
 
 @app.get("/api/auth/facebook/callback")
 def facebook_callback():
@@ -561,8 +580,7 @@ def facebook_callback():
     error = request.args.get('error')
     
     if error:
-        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
-        return f"<script>window.location.href='{frontend_url}/login?error={error}'</script>"
+        return f"<script>window.location.href='{PRIMARY_FRONTEND_URL}/login?error={error}'</script>"
     
     if not code:
         return jsonify({"erro": "Código de autorização não fornecido"}), 400
@@ -570,8 +588,7 @@ def facebook_callback():
     # Troca código por token
     user_info = auth_service.exchange_facebook_code(code)
     if not user_info:
-        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
-        return f"<script>window.location.href='{frontend_url}/login?error=auth_failed'</script>"
+        return f"<script>window.location.href='{PRIMARY_FRONTEND_URL}/login?error=auth_failed'</script>"
     
     # Processa usuário e redireciona para o frontend com token
     db = SessionLocal()
@@ -596,9 +613,8 @@ def facebook_callback():
     )
     
     db.close()
-    
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
-    return f"<script>window.location.href='{frontend_url}/sucesso?token={jwt_token}'</script>"
+
+    return f"<script>window.location.href='{PRIMARY_FRONTEND_URL}/sucesso?token={jwt_token}'</script>"
 
 @app.route("/api/auth/validate", methods=["GET", "POST"])
 def validar_token():
