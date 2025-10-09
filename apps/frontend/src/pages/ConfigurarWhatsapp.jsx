@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export default function ConfigurarWhatsapp() {
@@ -6,14 +6,25 @@ export default function ConfigurarWhatsapp() {
   const [loading, setLoading] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [error, setError] = useState(null);
+  const [statusMessage, setStatusMessage] = useState(null);
+  const retryTimeoutRef = useRef(null);
+  const pollingIntervalRef = useRef(null);
+  const pollingStopTimeoutRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     checkConnectionStatus();
+    return () => {
+      clearRetryTimeout();
+      clearPollingInterval();
+    };
   }, []);
 
   const checkConnectionStatus = async () => {
     try {
+       setError(null);
+      setStatusMessage(null);
+      setLoading(true);
       const senderUrl =
         import.meta.env.VITE_SENDER_URL || 'https://versozap-sender-git-main-versozap.vercel.app';
       const response = await fetch(`${senderUrl}/status`);
@@ -27,6 +38,8 @@ export default function ConfigurarWhatsapp() {
 
       if (data.whatsappStatus === 'connected') {
         // Já está conectado, redireciona para dashboard
+        setStatusMessage('WhatsApp já está conectado! Redirecionando...');
+        setLoading(false);
         navigate('/dashboard');
       } else {
         // Precisa conectar, busca QR code
@@ -39,38 +52,87 @@ export default function ConfigurarWhatsapp() {
     }
   };
 
-  const fetchQrCode = async () => {
+  const clearRetryTimeout = () => {
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
+  };
+
+  const clearPollingInterval = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    if (pollingStopTimeoutRef.current) {
+      clearTimeout(pollingStopTimeoutRef.current);
+      pollingStopTimeoutRef.current = null;
+    }
+  };
+
+  const fetchQrCode = async (attempt = 0) => {
     try {
+      setLoading(true);
+      setError(null);
       const senderUrl =
         import.meta.env.VITE_SENDER_URL || 'https://versozap-sender-git-main-versozap.vercel.app';
       const response = await fetch(`${senderUrl}/qrcode`);
 
+      if (response.status === 202) {
+        const data = await response.json().catch(() => ({}));
+        setStatusMessage(data?.message || 'QR Code ainda não disponível, tentando novamente...');
+        clearRetryTimeout();
+        retryTimeoutRef.current = setTimeout(() => fetchQrCode(attempt + 1), 3000);
+        return;
+      }
+
       if (!response.ok) {
-        throw new Error(`Erro ${response.status}: ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({}));
+        const message =
+          errorData?.erro || errorData?.message || `Erro ${response.status}: ${response.statusText}`;
+        throw new Error(message);
       }
 
       const data = await response.json();
 
       if (data.qrCode) {
         setQrCode(data.qrCode);
+        setStatusMessage(null);
         // Inicia polling para verificar conexão
         startConnectionPolling();
-      } else if (data.message) {
-        setError(data.message);
+      setLoading(false);
+        return;
+      }
+
+      if (data.status === 'connected') {
+        setConnectionStatus('connected');
+        setStatusMessage(data.message || 'WhatsApp já está conectado.');
+        setLoading(false);
+        setTimeout(() => navigate('/dashboard'), 2000);
+        return;
+      }
+
+      if (data.message) {
+        setStatusMessage(data.message);
+        setLoading(false);
       } else if (data.erro) {
         setError(data.erro);
+        setLoading(false);
       } else {
         setError('QR Code não disponível');
+        setLoading(false);
       }
     } catch (error) {
       console.error('Erro ao buscar QR Code:', error);
-      setError('Erro ao carregar QR Code');
-    } finally {
+      setError(error.message || 'Erro ao carregar QR Code');
       setLoading(false);
+      setStatusMessage(null);
     }
   };
 
   const startConnectionPolling = () => {
+    clearPollingInterval();
+
     const interval = setInterval(async () => {
       try {
         const senderUrl =
@@ -81,8 +143,14 @@ export default function ConfigurarWhatsapp() {
           const data = await response.json();
 
           if (data.whatsappStatus === 'connected') {
+            pollingIntervalRef.current = null;
+            if (pollingStopTimeoutRef.current) {
+              clearTimeout(pollingStopTimeoutRef.current);
+              pollingStopTimeoutRef.current = null;
+            }
             clearInterval(interval);
             setConnectionStatus('connected');
+            setStatusMessage('Conexão estabelecida! Redirecionando...');
 
             // Aguarda um momento e redireciona
             setTimeout(() => {
@@ -95,14 +163,23 @@ export default function ConfigurarWhatsapp() {
       }
     }, 3000); // Verifica a cada 3 segundos
 
+    pollingIntervalRef.current = interval;
+
     // Para o polling após 5 minutos para evitar loops infinitos
-    setTimeout(() => clearInterval(interval), 300000);
+    pollingStopTimeoutRef.current = setTimeout(() => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    }, 300000);
   };
 
   const regenerateQrCode = () => {
+    clearRetryTimeout();
     setLoading(true);
     setError(null);
     setQrCode(null);
+    setStatusMessage(null);
     fetchQrCode();
   };
 
@@ -139,6 +216,7 @@ export default function ConfigurarWhatsapp() {
               <div className="space-y-4">
                 <div className="animate-spin mx-auto w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full"></div>
                 <p className="text-gray-500">Carregando QR Code...</p>
+                {statusMessage && <p className="text-gray-500 text-sm">{statusMessage}</p>}
               </div>
             ) : error ? (
               <div className="space-y-4">
@@ -177,6 +255,16 @@ export default function ConfigurarWhatsapp() {
                   className="text-emerald-600 text-sm hover:underline"
                 >
                   Gerar novo QR Code
+                </button>
+              </div>
+            ) : statusMessage ? (
+              <div className="space-y-4 text-gray-600">
+                <p>{statusMessage}</p>
+                <button
+                  onClick={regenerateQrCode}
+                  className="bg-emerald-500 text-white px-6 py-2 rounded-lg hover:bg-emerald-600 transition-colors"
+                >
+                  Tentar Novamente
                 </button>
               </div>
             ) : null}
