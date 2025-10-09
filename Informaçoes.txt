@@ -61,5 +61,5 @@ npm start          # Start WhatsApp sender service
 
 - **Frontend**: Deployed on Vercel (app.versozap.com.br)
 - **Backend**: Deployed on Render
-- **Sender**: Deployed on Railway
+- **Sender**: Deployed on Vercel (versozap-sender-git-main-versozap.vercel.app)
 - **Database**: SQLite with SQLAlchemy ORM

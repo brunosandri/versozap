@@ -11,7 +11,7 @@ export default function QrCodePage() {
   const fetchQrCode = async () => {
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SENDER_URL || 'https://versozap-sender.vercel.app'}/qrcode`
+        `${import.meta.env.VITE_SENDER_URL || 'https://versozap-sender-git-main-versozap.vercel.app'}/qrcode`
       );
       const data = await response.json();
       setQrCode(data.qrCode);  // supondo que venha base64

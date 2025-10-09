@@ -165,7 +165,7 @@ export default function Configuracoes() {
                     <input
                       type="url"
                       name="sender_url"
-                      defaultValue="https://versozap-sender.vercel.app"
+                      defaultValue="https://versozap-sender-git-main-versozap.vercel.app"
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
