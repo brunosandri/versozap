@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export default function ConfigurarWhatsapp() {
@@ -7,10 +7,98 @@ export default function ConfigurarWhatsapp() {
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [error, setError] = useState(null);
   const [statusMessage, setStatusMessage] = useState(null);
+  const [activeSenderUrl, setActiveSenderUrl] = useState(null);
   const retryTimeoutRef = useRef(null);
   const pollingIntervalRef = useRef(null);
   const pollingStopTimeoutRef = useRef(null);
   const navigate = useNavigate();
+
+  const senderUrls = useMemo(() => {
+    const urls = [];
+
+    const envUrl = import.meta.env.VITE_SENDER_URL?.trim();
+    if (envUrl) {
+      urls.push(envUrl.replace(/\/$/, ''));
+    }
+
+    if (typeof window !== 'undefined') {
+      const { hostname } = window.location;
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        urls.push('http://localhost:3000');
+        urls.push('http://127.0.0.1:3000');
+      }
+    }
+
+    urls.push('https://versozap-sender.vercel.app');
+    urls.push('https://versozap-sender-git-main-versozap.vercel.app');
+
+    return [...new Set(urls.filter(Boolean))];
+  }, []);
+
+  const parseResponse = useCallback(async (response) => {
+    const contentType = response.headers.get('content-type') || '';
+
+    if (contentType.includes('application/json')) {
+      return response.json();
+    }
+
+    const text = await response.text();
+
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      return { message: text };
+    }
+  }, []);
+
+  const fetchFromSender = useCallback(
+    async (endpoint, options) => {
+      const attempts = [];
+
+      for (const baseUrl of senderUrls) {
+        if (!baseUrl) {
+          continue;
+        }
+
+        try {
+          const response = await fetch(`${baseUrl}${endpoint}`, {
+            headers: { Accept: 'application/json', ...(options?.headers || {}) },
+            ...options
+          });
+
+          const status = response.status;
+          const data = await parseResponse(response);
+
+          if (!response.ok) {
+            const message =
+              data?.erro ||
+              data?.message ||
+              `Erro ${status}: ${response.statusText || 'Falha ao processar resposta'}`;
+            attempts.push({ baseUrl, status, message });
+            continue;
+          }
+
+          setActiveSenderUrl(baseUrl);
+
+          return { data, status, baseUrl };
+        } catch (error) {
+          attempts.push({ baseUrl, message: error.message });
+        }
+      }
+
+      const detailedMessage = attempts.length
+        ? attempts.map((attempt) => `${attempt.baseUrl} (${attempt.message})`).join(' | ')
+        : 'Nenhum endpoint configurado para o VersoZap Sender.';
+
+      const aggregatedError = new Error(
+        `Não foi possível contatar o serviço do WhatsApp. ${detailedMessage}`
+      );
+      aggregatedError.attempts = attempts;
+
+      throw aggregatedError;
+    },
+    [parseResponse, senderUrls]
+  );
 
   useEffect(() => {
     checkConnectionStatus();
@@ -22,18 +110,10 @@ export default function ConfigurarWhatsapp() {
 
   const checkConnectionStatus = async () => {
     try {
-       setError(null);
+      setError(null);
       setStatusMessage(null);
       setLoading(true);
-      const senderUrl =
-        import.meta.env.VITE_SENDER_URL || 'https://versozap-sender-git-main-versozap.vercel.app';
-      const response = await fetch(`${senderUrl}/status`);
-
-      if (!response.ok) {
-        throw new Error(`Erro ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      const { data } = await fetchFromSender('/status');
       setConnectionStatus(data.whatsappStatus);
 
       if (data.whatsappStatus === 'connected') {
@@ -47,7 +127,16 @@ export default function ConfigurarWhatsapp() {
       }
     } catch (error) {
       console.error('Erro ao verificar status:', error);
-      setError(`Erro ao verificar conexão do WhatsApp: ${error.message}`);
+      setError(
+        'Não foi possível verificar a conexão do WhatsApp. Verifique se o serviço VersoZap Sender está em execução.'
+      );
+      if (error?.attempts?.length) {
+        setStatusMessage(
+          `Tentativas: ${error.attempts
+            .map((attempt) => `${attempt.baseUrl} (${attempt.message})`)
+            .join(' • ')}`
+        );
+      }
       setLoading(false);
     }
   };
@@ -74,33 +163,25 @@ export default function ConfigurarWhatsapp() {
     try {
       setLoading(true);
       setError(null);
-      const senderUrl =
-        import.meta.env.VITE_SENDER_URL || 'https://versozap-sender-git-main-versozap.vercel.app';
-      const response = await fetch(`${senderUrl}/qrcode`);
+      const { data, status } = await fetchFromSender('/qrcode');
 
-      if (response.status === 202) {
-        const data = await response.json().catch(() => ({}));
-        setStatusMessage(data?.message || 'QR Code ainda não disponível, tentando novamente...');
+      if (status === 202) {
+        setStatusMessage(
+          `${
+            data?.message || 'QR Code ainda não disponível, tentando novamente...'
+          } (tentativa ${attempt + 1})`
+        );
         clearRetryTimeout();
         retryTimeoutRef.current = setTimeout(() => fetchQrCode(attempt + 1), 3000);
         return;
       }
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const message =
-          errorData?.erro || errorData?.message || `Erro ${response.status}: ${response.statusText}`;
-        throw new Error(message);
-      }
-
-      const data = await response.json();
 
       if (data.qrCode) {
         setQrCode(data.qrCode);
         setStatusMessage(null);
         // Inicia polling para verificar conexão
         startConnectionPolling();
-      setLoading(false);
+        setLoading(false);
         return;
       }
 
@@ -124,9 +205,19 @@ export default function ConfigurarWhatsapp() {
       }
     } catch (error) {
       console.error('Erro ao buscar QR Code:', error);
-      setError(error.message || 'Erro ao carregar QR Code');
+      setError(
+        'Não foi possível carregar o QR Code. Verifique se o serviço VersoZap Sender está ativo e tente novamente.'
+      );
+      if (error?.attempts?.length) {
+        setStatusMessage(
+          `Tentativas: ${error.attempts
+            .map((attempt) => `${attempt.baseUrl} (${attempt.message})`)
+            .join(' • ')}`
+        );
+      } else {
+        setStatusMessage(null);
+      }
       setLoading(false);
-      setStatusMessage(null);
     }
   };
 
@@ -135,28 +226,22 @@ export default function ConfigurarWhatsapp() {
 
     const interval = setInterval(async () => {
       try {
-        const senderUrl =
-          import.meta.env.VITE_SENDER_URL || 'https://versozap-sender-git-main-versozap.vercel.app';
-        const response = await fetch(`${senderUrl}/status`);
+        const { data } = await fetchFromSender('/status');
 
-        if (response.ok) {
-          const data = await response.json();
-
-          if (data.whatsappStatus === 'connected') {
-            pollingIntervalRef.current = null;
-            if (pollingStopTimeoutRef.current) {
-              clearTimeout(pollingStopTimeoutRef.current);
-              pollingStopTimeoutRef.current = null;
-            }
-            clearInterval(interval);
-            setConnectionStatus('connected');
-            setStatusMessage('Conexão estabelecida! Redirecionando...');
-
-            // Aguarda um momento e redireciona
-            setTimeout(() => {
-              navigate('/dashboard');
-            }, 2000);
+        if (data.whatsappStatus === 'connected') {
+          clearInterval(interval);
+          pollingIntervalRef.current = null;
+          if (pollingStopTimeoutRef.current) {
+            clearTimeout(pollingStopTimeoutRef.current);
+            pollingStopTimeoutRef.current = null;
           }
+          setConnectionStatus('connected');
+          setStatusMessage('Conexão estabelecida! Redirecionando...');
+
+          // Aguarda um momento e redireciona
+          setTimeout(() => {
+            navigate('/dashboard');
+          }, 2000);
         }
       } catch (error) {
         console.error('Erro no polling:', error);
@@ -180,7 +265,7 @@ export default function ConfigurarWhatsapp() {
     setError(null);
     setQrCode(null);
     setStatusMessage(null);
-    fetchQrCode();
+    checkConnectionStatus();
   };
 
   return (
@@ -217,6 +302,9 @@ export default function ConfigurarWhatsapp() {
                 <div className="animate-spin mx-auto w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full"></div>
                 <p className="text-gray-500">Carregando QR Code...</p>
                 {statusMessage && <p className="text-gray-500 text-sm">{statusMessage}</p>}
+                {activeSenderUrl && (
+                  <p className="text-gray-400 text-xs">Servidor: {activeSenderUrl}</p>
+                )}
               </div>
             ) : error ? (
               <div className="space-y-4">
@@ -232,6 +320,10 @@ export default function ConfigurarWhatsapp() {
                 >
                   Tentar Novamente
                 </button>
+                {statusMessage && <p className="text-gray-500 text-sm">{statusMessage}</p>}
+                {activeSenderUrl && (
+                  <p className="text-gray-400 text-xs">Último servidor acessado: {activeSenderUrl}</p>
+                )}
               </div>
             ) : qrCode ? (
               <div className="space-y-4">
@@ -256,6 +348,9 @@ export default function ConfigurarWhatsapp() {
                 >
                   Gerar novo QR Code
                 </button>
+                {activeSenderUrl && (
+                  <p className="text-gray-400 text-xs">Servidor: {activeSenderUrl}</p>
+                )}
               </div>
             ) : statusMessage ? (
               <div className="space-y-4 text-gray-600">
@@ -266,6 +361,9 @@ export default function ConfigurarWhatsapp() {
                 >
                   Tentar Novamente
                 </button>
+                {activeSenderUrl && (
+                  <p className="text-gray-400 text-xs">Servidor: {activeSenderUrl}</p>
+                )}
               </div>
             ) : null}
           </>
