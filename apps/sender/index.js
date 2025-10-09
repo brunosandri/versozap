@@ -71,8 +71,12 @@ let lastMessageTime = Date.now();
 let messageQueue = [];
 let isProcessingQueue = false;
 let lastQrCode = null;
+let lastQrCodeDataUri = null;
+let lastQrCodeAscii = null;
 let lastQrCodeTimestamp = null;
 let lastQrCodeAttempts = 0;
+let venomInitPromise = null;
+const qrCodeWaiters = new Set();
 
 const venomConfig = {
   session: process.env.SENDER_SESSION_NAME || 'versozap',
