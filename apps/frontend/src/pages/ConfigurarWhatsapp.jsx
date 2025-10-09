@@ -14,7 +14,8 @@ export default function ConfigurarWhatsapp() {
 
   const checkConnectionStatus = async () => {
     try {
-      const senderUrl = import.meta.env.VITE_SENDER_URL || 'https://versozap-sender-v2-production.up.railway.app';
+      const senderUrl =
+        import.meta.env.VITE_SENDER_URL || 'https://versozap-sender.vercel.app';
       const response = await fetch(`${senderUrl}/status`);
 
       if (!response.ok) {
@@ -40,7 +41,8 @@ export default function ConfigurarWhatsapp() {
 
   const fetchQrCode = async () => {
     try {
-      const senderUrl = import.meta.env.VITE_SENDER_URL || 'https://versozap-sender-v2-production.up.railway.app';
+      const senderUrl =
+        import.meta.env.VITE_SENDER_URL || 'https://versozap-sender.vercel.app';
       const response = await fetch(`${senderUrl}/qrcode`);
 
       if (!response.ok) {
@@ -71,7 +73,8 @@ export default function ConfigurarWhatsapp() {
   const startConnectionPolling = () => {
     const interval = setInterval(async () => {
       try {
-        const senderUrl = import.meta.env.VITE_SENDER_URL || 'https://versozap-sender-v2-production.up.railway.app';
+        const senderUrl =
+          import.meta.env.VITE_SENDER_URL || 'https://versozap-sender.vercel.app';
         const response = await fetch(`${senderUrl}/status`);
 
         if (response.ok) {

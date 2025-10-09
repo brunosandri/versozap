@@ -10,7 +10,9 @@ export default function QrCodePage() {
 
   const fetchQrCode = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_SENDER_URL || 'https://versozap-sender-v2-production.up.railway.app'}/qrcode`);
+      const response = await fetch(
+        `${import.meta.env.VITE_SENDER_URL || 'https://versozap-sender.vercel.app'}/qrcode`
+      );
       const data = await response.json();
       setQrCode(data.qrCode);  // supondo que venha base64
     } catch (error) {
