@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from bible_service import biblia_service, obter_trecho_do_dia
 from auth_service import auth_service
 from database_manager import db_manager, initialize_database
-from logging_system import versozap_logger, LogCategory, log_info, log_error, log_success
+from logging_system import versozap_logger, LogCategory, log_info, log_error, log_success, log_warning
 
 # ---------------------------------------------------------------------------
 # Configurações básicas
@@ -21,7 +21,21 @@ load_dotenv()
 # Timestamp de inicialização da aplicação
 app_start_time = time.time()
 
-SENDER_URL = os.getenv("SENDER_URL")
+def _normalize_sender_url(value: str | None) -> str | None:
+    if not value:
+        return None
+
+    normalized = value.strip()
+    if not normalized:
+        return None
+
+    if normalized.endswith('/'):
+        normalized = normalized[:-1]
+
+    return normalized
+
+
+SENDER_BASE_URL = _normalize_sender_url(os.getenv("SENDER_URL"))
 SENDER_AUTH_TOKEN = os.getenv("SENDER_AUTH_TOKEN")
 DATABASE_URL = os.getenv("DATABASE_URL")
 SECRET_KEY = os.getenv("SECRET_KEY", "versozap-dev")  # troque em produção
@@ -30,7 +44,7 @@ EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 def _load_frontend_origins() -> list[str]:
     """Carrega os domínios permitidos para o frontend."""
-    default_frontend = "https://https://app.versozap.com.br/"
+    default_frontend = "https://app.versozap.com.br"
 
     # Permite sobrescrever por meio de variável de ambiente, suportando múltiplos domínios
     # separados por vírgula (ex.: "https://app...,http://localhost:5173").
@@ -103,8 +117,25 @@ def _sender_headers():
     return headers
 
 
+def _sender_endpoint(path: str = "") -> str | None:
+    if not SENDER_BASE_URL:
+        return None
+
+    clean_path = (path or "").lstrip("/")
+    if clean_path:
+        return f"{SENDER_BASE_URL}/{clean_path}"
+
+    return SENDER_BASE_URL
+
+
 def enviar_leitura_diaria():
     db = SessionLocal()
+    sender_url = _sender_endpoint("enviar")
+    if not sender_url:
+        log_error(LogCategory.SYSTEM, "SENDER_URL não configurada para envio automático de leituras")
+        db.close()
+        return
+
     usuarios = db.query(Usuario).all()
 
     for usuario in usuarios:
@@ -138,7 +169,7 @@ def enviar_leitura_diaria():
             try:
                 mensagem = f"🙏 Olá {usuario.nome}, sua leitura bíblica de hoje:\n\n{leitura_info['texto']}"
                 requests.post(
-                    SENDER_URL,
+                    sender_url,
                     json={
                         "telefone": usuario.telefone,
                         "mensagem": mensagem,
@@ -201,6 +232,9 @@ def login_email():
     db = SessionLocal()
     user = db.query(Usuario).filter_by(email=email).first()
     if not user or not user.password_hash:
+        return jsonify(error="Credenciais inválidas"), 401
+    
+    if not check_password_hash(user.password_hash, password):
         return jsonify(error="Credenciais inválidas"), 401
 
     token = auth_service.generate_jwt_token(user.id, user.email, provider="email")
@@ -287,8 +321,13 @@ def enviar_leitura():
 
     try:
         mensagem = f"🙏 Olá {usuario.nome}, sua leitura bíblica:\n\n{leitura_info['texto']}"
+        sender_url = _sender_endpoint("enviar")
+        if not sender_url:
+            log_error(LogCategory.SYSTEM, "SENDER_URL não configurada para envio manual de leituras")
+            return jsonify({"erro": "Serviço de envio não configurado"}), 503
+        
         requests.post(
-            SENDER_URL,
+            sender_url,
             json={
                 "telefone": usuario.telefone,
                 "mensagem": mensagem,
@@ -862,13 +901,17 @@ def admin_get_system_status():
         
         # Status do WhatsApp sender
         whatsapp_status = "unknown"
-        try:
-            response = requests.get(f"{SENDER_URL}/status", timeout=5)
-            if response.status_code == 200:
-                whatsapp_data = response.json()
-                whatsapp_status = whatsapp_data.get("whatsappStatus", "unknown")
-        except:
-            whatsapp_status = "disconnected"
+        status_url = _sender_endpoint("status")
+        if status_url:
+            try:
+                response = requests.get(status_url, timeout=5)
+                if response.status_code == 200:
+                    whatsapp_data = response.json()
+                    whatsapp_status = whatsapp_data.get("whatsappStatus", "unknown")
+            except Exception:
+                whatsapp_status = "disconnected"
+        else:
+            whatsapp_status = "not_configured"
         
         # Estatísticas dos logs
         log_stats = versozap_logger.get_stats()
@@ -909,6 +952,12 @@ if not initialize_database():
 Base.metadata.create_all(bind=engine)
 
 log_success(LogCategory.SYSTEM, "VersoZap Backend inicializado com sucesso")
+
+if not SENDER_BASE_URL:
+    log_warning(
+        LogCategory.SYSTEM,
+        "Variável SENDER_URL não configurada. Configure-a para integrar com o serviço Sender."
+    )
 
 if __name__ == "__main__":
     try:

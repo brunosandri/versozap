@@ -19,8 +19,12 @@ class DatabaseManager:
     
     def __init__(self, database_url=None):
         self.database_url = database_url or os.getenv("DATABASE_URL", "sqlite:///versozap.db")
-        self.engine = create_engine(self.database_url, echo=False)
-        self.SessionLocal = sessionmaker(bind=self.engine)
+        connect_args = {}
+        if self.database_url.startswith("sqlite"):
+            connect_args = {"check_same_thread": False}
+
+        self.engine = create_engine(self.database_url, echo=False, connect_args=connect_args)
+        self.SessionLocal = sessionmaker(bind=self.engine, autoflush=False, autocommit=False)
         
     def create_migrations_table(self):
         """Cria tabela de controle de migrations se não existir"""
