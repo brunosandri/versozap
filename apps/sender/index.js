@@ -10,6 +10,25 @@ app.use(express.json());
 
 const senderAuthToken = process.env.SENDER_AUTH_TOKEN || process.env.AUTH_TOKEN || null;
 
+const sessionStorageDir = (() => {
+  if (process.env.SENDER_SESSION_DIR) {
+    return path.resolve(process.env.SENDER_SESSION_DIR);
+  }
+
+  if (process.env.VERCEL) {
+    return path.join('/tmp', 'versozap-sessions');
+  }
+
+  return path.join(__dirname, '.sessions');
+})();
+
+try {
+  fs.mkdirSync(sessionStorageDir, { recursive: true });
+  console.log(`📁 Diretório de sessão: ${sessionStorageDir}`);
+} catch (error) {
+  console.warn('⚠️ Não foi possível preparar o diretório de sessão do WhatsApp:', error.message);
+}
+
 function extractAuthToken(req) {
   const headerToken = req.headers['x-api-key'];
   const authorization = req.headers['authorization'];
@@ -55,6 +74,38 @@ let lastQrCode = null;
 let lastQrCodeTimestamp = null;
 let lastQrCodeAttempts = 0;
 
+const venomConfig = {
+  session: process.env.SENDER_SESSION_NAME || 'versozap',
+  multidevice: true,
+  headless: true,
+  disableSpins: true,
+  logQR: false,
+  updatesLog: false,
+  autoClose: 0,
+  catchQR: (base64Qr, asciiQR, attempts) => {
+    lastQrCode = base64Qr;
+    lastQrCodeAttempts = attempts;
+    lastQrCodeTimestamp = new Date().toISOString();
+    connectionStatus = 'qrcode';
+    console.log('📸 Novo QR Code gerado (tentativa %d)', attempts);
+    if (process.env.VERCEL) {
+      console.log('🔄 Ambiente Vercel detectado — mantenha esta função aberta enquanto escaneia o QR Code.');
+    }
+  },
+  folderNameToken: process.env.SENDER_TOKEN_FOLDER || 'versozap-tokens',
+  mkdirFolderToken: sessionStorageDir,
+  addBrowserArgs: [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-extensions',
+    '--disable-gpu',
+    '--no-first-run',
+    '--no-zygote',
+    '--disable-background-networking',
+  ],
+};
+
 // Configurações
 const config = {
   rateLimitDelay: 2000, // 2 segundos entre mensagens
@@ -64,20 +115,7 @@ const config = {
 };
 
 venom
-  .create({
-    session: 'versozap',
-    multidevice: true,
-    headless: true,
-    disableSpins: true,
-    logQR: false,
-    catchQR: (base64Qr, asciiQR, attempts) => {
-      lastQrCode = base64Qr;
-      lastQrCodeAttempts = attempts;
-      lastQrCodeTimestamp = new Date().toISOString();
-      connectionStatus = 'qrcode';
-      console.log('📸 Novo QR Code gerado (tentativa %d)', attempts);
-    }
-  })
+  .create(venomConfig)
   .then((cli) => {
     client = cli;
     connectionStatus = 'connected';
