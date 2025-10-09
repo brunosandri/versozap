@@ -326,10 +326,10 @@ async function sendMessageWithRateLimit(messageData) {
   if (timeSinceLastMessage < config.rateLimitDelay) {
     await delay(config.rateLimitDelay - timeSinceLastMessage);
   }
-  
+
   const { telefone, mensagem, audio } = messageData;
   const chatId = `${telefone}@c.us`;
-
+  
   if (!client) {
     throw new Error('Cliente WhatsApp indisponível para envio');
   }

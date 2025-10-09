@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 export default function ConfigurarWhatsapp() {
   const [qrCode, setQrCode] = useState(null);
+  const [qrCodeAscii, setQrCodeAscii] = useState(null);
   const [loading, setLoading] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [error, setError] = useState(null);
@@ -113,11 +114,14 @@ export default function ConfigurarWhatsapp() {
       setError(null);
       setStatusMessage(null);
       setLoading(true);
+      setQrCodeAscii(null);
       const { data } = await fetchFromSender('/status');
       setConnectionStatus(data.whatsappStatus);
 
       if (data.whatsappStatus === 'connected') {
         // Já está conectado, redireciona para dashboard
+        setQrCode(null);
+        setQrCodeAscii(null);
         setStatusMessage('WhatsApp já está conectado! Redirecionando...');
         setLoading(false);
         navigate('/dashboard');
@@ -163,6 +167,7 @@ export default function ConfigurarWhatsapp() {
     try {
       setLoading(true);
       setError(null);
+      setQrCodeAscii(null);
       const { data, status } = await fetchFromSender('/qrcode');
 
       if (status === 202) {
@@ -173,11 +178,16 @@ export default function ConfigurarWhatsapp() {
         );
         clearRetryTimeout();
         retryTimeoutRef.current = setTimeout(() => fetchQrCode(attempt + 1), 3000);
+        setQrCode(null);
+        setQrCodeAscii(null);
         return;
       }
 
-      if (data.qrCode) {
-        setQrCode(data.qrCode);
+      if (data.qrCode || data.qrCodeDataUri || data.asciiQr) {
+        const imageSource =
+          data.qrCodeDataUri || (data.qrCode ? `data:image/png;base64,${data.qrCode}` : null);
+        setQrCode(imageSource);
+        setQrCodeAscii(data.asciiQr || null);
         setStatusMessage(null);
         // Inicia polling para verificar conexão
         startConnectionPolling();
@@ -188,6 +198,8 @@ export default function ConfigurarWhatsapp() {
       if (data.status === 'connected') {
         setConnectionStatus('connected');
         setStatusMessage(data.message || 'WhatsApp já está conectado.');
+        setQrCode(null);
+        setQrCodeAscii(null);
         setLoading(false);
         setTimeout(() => navigate('/dashboard'), 2000);
         return;
@@ -208,6 +220,8 @@ export default function ConfigurarWhatsapp() {
       setError(
         'Não foi possível carregar o QR Code. Verifique se o serviço VersoZap Sender está ativo e tente novamente.'
       );
+      setQrCode(null);
+      setQrCodeAscii(null);
       if (error?.attempts?.length) {
         setStatusMessage(
           `Tentativas: ${error.attempts
@@ -264,6 +278,7 @@ export default function ConfigurarWhatsapp() {
     setLoading(true);
     setError(null);
     setQrCode(null);
+    setQrCodeAscii(null);
     setStatusMessage(null);
     checkConnectionStatus();
   };
@@ -328,7 +343,7 @@ export default function ConfigurarWhatsapp() {
             ) : qrCode ? (
               <div className="space-y-4">
                 <img
-                  src={`data:image/png;base64,${qrCode}`}
+                  src={qrCode}
                   alt="QR Code do WhatsApp"
                   className="mx-auto w-64 h-64 border border-gray-200 rounded-lg shadow-sm"
                 />
@@ -342,6 +357,25 @@ export default function ConfigurarWhatsapp() {
                     <li>5. Escaneie este QR Code</li>
                   </ol>
                 </div>
+                <button
+                  onClick={regenerateQrCode}
+                  className="text-emerald-600 text-sm hover:underline"
+                >
+                  Gerar novo QR Code
+                </button>
+                {activeSenderUrl && (
+                  <p className="text-gray-400 text-xs">Servidor: {activeSenderUrl}</p>
+                )}
+              </div>
+              ) : qrCodeAscii ? (
+              <div className="space-y-4">
+                <pre className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-left text-xs leading-tight overflow-x-auto">
+                  {qrCodeAscii}
+                </pre>
+                <p className="text-gray-600 text-sm">
+                  Use este QR Code em modo texto caso a imagem não esteja disponível. Abra o WhatsApp e selecione a opção de
+                  conectar dispositivo.
+                </p>
                 <button
                   onClick={regenerateQrCode}
                   className="text-emerald-600 text-sm hover:underline"
