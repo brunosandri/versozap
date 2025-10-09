@@ -66,7 +66,7 @@ function requireAuth(req, res, next) {
 }
 
 let client = null;
-let connectionStatus = 'initializing';
+let connectionStatus = 'idle';
 let lastMessageTime = Date.now();
 let messageQueue = [];
 let isProcessingQueue = false;
@@ -78,6 +78,34 @@ let lastQrCodeAttempts = 0;
 let venomInitPromise = null;
 const qrCodeWaiters = new Set();
 
+function normalizeQrCodePayload(base64Qr) {
+  if (typeof base64Qr !== 'string') {
+    return { base64: null, dataUri: null };
+  }
+
+  const trimmed = base64Qr.trim();
+  if (!trimmed) {
+    return { base64: null, dataUri: null };
+  }
+
+  if (trimmed.startsWith('data:')) {
+    const commaIndex = trimmed.indexOf(',');
+    if (commaIndex !== -1) {
+      return {
+        base64: trimmed.slice(commaIndex + 1),
+        dataUri: trimmed,
+      };
+    }
+
+    return { base64: null, dataUri: trimmed };
+  }
+
+  return {
+    base64: trimmed,
+    dataUri: `data:image/png;base64,${trimmed}`,
+  };
+}
+
 const venomConfig = {
   session: process.env.SENDER_SESSION_NAME || 'versozap',
   multidevice: true,
@@ -87,7 +115,10 @@ const venomConfig = {
   updatesLog: false,
   autoClose: 0,
   catchQR: (base64Qr, asciiQR, attempts) => {
-    lastQrCode = base64Qr;
+    const { base64, dataUri } = normalizeQrCodePayload(base64Qr);
+    lastQrCode = base64;
+    lastQrCodeDataUri = dataUri;
+    lastQrCodeAscii = asciiQR || null;
     lastQrCodeAttempts = attempts;
     lastQrCodeTimestamp = new Date().toISOString();
     connectionStatus = 'qrcode';
@@ -95,6 +126,7 @@ const venomConfig = {
     if (process.env.VERCEL) {
       console.log('🔄 Ambiente Vercel detectado — mantenha esta função aberta enquanto escaneia o QR Code.');
     }
+    notifyQrCodeWaiters();
   },
   folderNameToken: process.env.SENDER_TOKEN_FOLDER || 'versozap-tokens',
   mkdirFolderToken: sessionStorageDir,
@@ -118,53 +150,147 @@ const config = {
   maxAudioSize: 16 * 1024 * 1024 // 16MB
 };
 
-venom
-  .create(venomConfig)
-  .then((cli) => {
-    client = cli;
-    connectionStatus = 'connected';
-    lastQrCode = null;
-    lastQrCodeAttempts = 0;
-    lastQrCodeTimestamp = null;
-    console.log('✅ Conectado ao WhatsApp!');
+async function startVenomClient({ force = false } = {}) {
+  if (client && !force) {
+    return client;
+  }
 
-    // Processa fila de mensagens pendentes
-    processMessageQueue();
+if (force && client) {
+    try {
+      await client.close();
+    } catch (error) {
+      console.warn('⚠️ Erro ao encerrar cliente anterior:', error.message);
+    }
+    client = null;
+  }
 
-    client.onMessage((message) => {
-      if (message.isGroupMsg) return;
-      if (!message.body.toLowerCase().startsWith('versozap')) return;
-      
-      console.log("Mensagem relevante recebida:", message.body);
-      handleUserMessage(message);
+  if (venomInitPromise && !force) {
+    return venomInitPromise;
+  }
+
+  if (venomInitPromise && force) {
+    try {
+      await venomInitPromise;
+    } catch (error) {
+      console.warn('⚠️ Inicialização anterior do Venom falhou:', error.message);
+    }
+  }
+
+  connectionStatus = 'initializing';
+
+  venomInitPromise = venom
+    .create(venomConfig)
+    .then((cli) => {
+      client = cli;
+      connectionStatus = 'connecting';
+      clearCachedQrCode();
+      setupClientEventHandlers();
+      processMessageQueue();
+      return client;
+    })
+    .catch((error) => {
+      console.error('❌ Erro ao conectar com o WhatsApp:', error);
+      connectionStatus = 'error';
+      notifyQrCodeWaiters();
+      throw error;
+    })
+    .finally(() => {
+      venomInitPromise = null;
     });
+  
+    return venomInitPromise;
+}
 
-    // Monitor de estado da conexão
-    client.onStateChange((state) => {
-      console.log('Estado da conexão:', state);
-      if (state === 'CONNECTED') {
-        connectionStatus = 'connected';
-        lastQrCode = null;
-      } else if (state === 'OPENING' || state === 'PAIRING') {
-        connectionStatus = 'connecting';
-      } else {
-        connectionStatus = 'disconnected';
-      }
-    });
+function clearCachedQrCode() {
+  lastQrCode = null;
+  lastQrCodeDataUri = null;
+  lastQrCodeAscii = null;
+  lastQrCodeAttempts = 0;
+  lastQrCodeTimestamp = null;
+}
 
-    // Monitor de desconexão
-    client.onStreamChange((state) => {
-      console.log('Stream mudou:', state);
-      if (state === 'DISCONNECTED') {
-        connectionStatus = 'disconnected';
-        console.log('⚠️ WhatsApp desconectado. Tentando reconectar...');
-      }
-    });
-  })
-  .catch((error) => {
-    console.error('❌ Erro ao conectar com o WhatsApp:', error);
-    connectionStatus = 'error';
+function setupClientEventHandlers() {
+  if (!client) {
+    return;
+  }
+
+  client.onMessage((message) => {
+    if (message.isGroupMsg) return;
+    if (!message.body.toLowerCase().startsWith('versozap')) return;
+
+    console.log('Mensagem relevante recebida:', message.body);
+    handleUserMessage(message);
   });
+
+  client.onStateChange((state) => {
+    console.log('Estado da conexão:', state);
+    if (state === 'CONNECTED') {
+      connectionStatus = 'connected';
+      clearCachedQrCode();
+      notifyQrCodeWaiters();
+    } else if (state === 'OPENING' || state === 'PAIRING') {
+      connectionStatus = 'connecting';
+    } else if (state === 'UNPAIRED' || state === 'UNPAIRED_IDLE') {
+      connectionStatus = 'qrcode';
+    } else {
+      connectionStatus = 'disconnected';
+    }
+  });
+
+  client.onStreamChange((state) => {
+    console.log('Stream mudou:', state);
+    if (state === 'DISCONNECTED') {
+      connectionStatus = 'disconnected';
+      console.log('⚠️ WhatsApp desconectado. Tentando reconectar...');
+      startVenomClient({ force: true }).catch((error) => {
+        console.error('❌ Falha ao reiniciar cliente após desconexão:', error.message);
+      });
+    }
+  });
+
+  if (typeof client.onLogout === 'function') {
+    client.onLogout(() => {
+      console.log('🚪 Logout detectado. Preparando novo QR Code...');
+      connectionStatus = 'disconnected';
+      startVenomClient({ force: true }).catch((error) => {
+        console.error('❌ Falha ao reiniciar cliente após logout:', error.message);
+    });
+  });
+  }
+}
+
+function notifyQrCodeWaiters() {
+  const waiters = Array.from(qrCodeWaiters);
+  qrCodeWaiters.clear();
+  waiters.forEach((notify) => {
+    try {
+      notify();
+    } catch (error) {
+      console.warn('⚠️ Erro ao notificar aguardando de QR Code:', error.message);
+    }
+  });
+}
+
+async function waitForQrCode(timeoutMs = 15000) {
+  if (lastQrCode || lastQrCodeAscii) {
+    return true;
+  }
+
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      qrCodeWaiters.delete(listener);
+      resolve(false);
+    }, timeoutMs);
+
+    function listener() {
+      clearTimeout(timeout);
+      qrCodeWaiters.delete(listener);
+      resolve(!!(lastQrCode || lastQrCodeAscii));
+    }
+
+    qrCodeWaiters.add(listener);
+  });
+}
 
 // Funções auxiliares
 async function processMessageQueue() {
@@ -203,6 +329,10 @@ async function sendMessageWithRateLimit(messageData) {
   
   const { telefone, mensagem, audio } = messageData;
   const chatId = `${telefone}@c.us`;
+
+  if (!client) {
+    throw new Error('Cliente WhatsApp indisponível para envio');
+  }
   
   // Envia mensagem de texto
   if (mensagem) {
@@ -219,6 +349,10 @@ async function sendMessageWithRateLimit(messageData) {
 
 async function sendAudioMessage(chatId, audioPath) {
   try {
+    if (!client) {
+      throw new Error('Cliente WhatsApp indisponível para envio de áudio');
+    }
+
     // Verifica se o arquivo existe e tem tamanho válido
     const stats = fs.statSync(audioPath);
     if (stats.size > config.maxAudioSize) {
@@ -456,17 +590,36 @@ app.post('/clear-queue', requireAuth, (req, res) => {
 
 const port = process.env.PORT || 3000;
 
-app.get('/qrcode', (req, res) => {
+startVenomClient().catch((error) => {
+  console.error('❌ Falha inicial ao conectar com o WhatsApp:', error.message);
+});
+
+app.get('/qrcode', async (req, res) => {
   try {
     if (connectionStatus === 'connected') {
-      return res.json({ 
+      return res.json({
         message: 'WhatsApp já está conectado',
         status: connectionStatus,
         connectedSince: new Date(Date.now() - process.uptime() * 1000).toISOString()
       });
     }
 
-    if (!lastQrCode) {
+    startVenomClient().catch((error) => {
+      console.error('❌ Falha ao inicializar cliente ao solicitar QR Code:', error.message);
+    });
+
+    if (!lastQrCode && !lastQrCodeAscii) {
+      const hasQrCode = await waitForQrCode(10000);
+
+      if (!hasQrCode) {
+        return res.status(202).json({
+          message: 'QR Code ainda não disponível, tente novamente em instantes',
+          status: connectionStatus
+        });
+      }
+    }
+
+    if (!lastQrCode && !lastQrCodeAscii) {
       return res.status(202).json({
         message: 'QR Code ainda não disponível, tente novamente em instantes',
         status: connectionStatus
@@ -475,6 +628,8 @@ app.get('/qrcode', (req, res) => {
 
     return res.json({
       qrCode: lastQrCode,
+      qrCodeDataUri: lastQrCodeDataUri,
+      asciiQr: lastQrCodeAscii,
       status: connectionStatus,
       attempts: lastQrCodeAttempts,
       generatedAt: lastQrCodeTimestamp,
@@ -492,18 +647,17 @@ app.get('/qrcode', (req, res) => {
 // Rota para reconectar manualmente
 app.post('/reconnect', requireAuth, async (req, res) => {
   try {
-    if (client) {
-      await client.close();
-    }
-    
-    // Reinicia a conexão
     connectionStatus = 'reconnecting';
     console.log('🔄 Tentando reconectar...');
+
+    const initialization = startVenomClient({ force: true });
+    initialization.catch((error) => {
+      console.error('❌ Falha ao reinicializar o Venom após solicitação manual:', error.message);
+    });
     
-    // Aqui você poderia reinicializar o venom-bot
     res.json({
       status: 'Reconexão iniciada',
-      message: 'Tentando reconectar com o WhatsApp',
+      message: 'Um novo QR Code será gerado em instantes.',
       timestamp: new Date().toISOString()
     });
   } catch (error) {
