@@ -8,6 +8,9 @@ Este serviço Node.js é responsável por enviar mensagens e áudios via WhatsAp
 | --- | --- | --- |
 | `SENDER_AUTH_TOKEN` | Opcional (recomendada) | Token compartilhado utilizado para autenticar as requisições que chegam ao serviço. Configure o mesmo valor no backend (`apps/backend`) para que ele envie as requisições com o cabeçalho apropriado. |
 | `PORT` | Opcional | Porta utilizada pelo servidor Express. A Vercel define automaticamente este valor durante o deploy. |
+| `SENDER_SESSION_DIR` | Opcional | Diretório onde o Venom irá salvar os arquivos de sessão. Em produção (Vercel) o serviço utiliza `/tmp/versozap-sessions` automaticamente. |
+| `SENDER_SESSION_NAME` | Opcional | Nome da sessão utilizada pelo Venom. Útil para separar múltiplas instâncias. |
+| `SENDER_TOKEN_FOLDER` | Opcional | Nome da pasta de tokens criada pelo Venom (padrão `versozap-tokens`). |
 
 > Caso `SENDER_AUTH_TOKEN` esteja definida, todas as rotas `POST` sensíveis (`/enviar`, `/enviar-audio`, `/clear-queue`, `/reconnect`) exigirão que o token seja enviado no cabeçalho `Authorization` (formato `Bearer <token>`) ou no cabeçalho `x-api-key`.
 
