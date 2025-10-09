@@ -528,9 +528,13 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
-app.listen(port, () => {
-  console.log(`🚀 VersoZap Sender v2.0.0 rodando em http://localhost:${port}`);
-  console.log(`📱 Status inicial: ${connectionStatus}`);
-  console.log(`⚙️ Rate limit: ${config.rateLimitDelay}ms entre mensagens`);
-  console.log(`🎵 Formatos de áudio suportados: ${config.audioFormats.join(', ')}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(port, () => {
+    console.log(`🚀 VersoZap Sender v2.0.0 rodando em http://localhost:${port}`);
+    console.log(`📱 Status inicial: ${connectionStatus}`);
+    console.log(`⚙️ Rate limit: ${config.rateLimitDelay}ms entre mensagens`);
+    console.log(`🎵 Formatos de áudio suportados: ${config.audioFormats.join(', ')}`);
+  });
+}
+
+module.exports = app;
