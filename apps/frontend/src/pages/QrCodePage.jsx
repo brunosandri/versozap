@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 export default function QrCodePage() {
   const [qrCode, setQrCode] = useState(null);
@@ -6,27 +6,53 @@ export default function QrCodePage() {
   const [loading, setLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState(null);
   const [error, setError] = useState(null);
+  const [retryAttempt, setRetryAttempt] = useState(0);
+  const retryTimeoutRef = useRef(null);
 
   useEffect(() => {
     fetchQrCode();
+
+    return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
+    };
   }, []);
 
-  const fetchQrCode = async () => {
+  const fetchQrCode = async (attempt = 0) => {
     try {
       setLoading(true);
       setError(null);
       setStatusMessage(null);
       setQrCodeAscii(null);
+      setRetryAttempt(attempt);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 segundos timeout
+
       const response = await fetch(
-        `${import.meta.env.VITE_SENDER_URL || 'https://versozap-sender-git-main-versozap.vercel.app'}/qrcode`
+        `${import.meta.env.VITE_SENDER_URL || 'https://versozap-sender-git-main-versozap.vercel.app'}/qrcode`,
+        { signal: controller.signal }
       );
+
+      clearTimeout(timeoutId);
+
       const data = await response.json();
       if (response.status === 202) {
+        const retryDelay = Math.min(1000 * Math.pow(1.5, attempt), 10000); // Exponential backoff, max 10s
         setStatusMessage(
-          data?.message || 'QR Code ainda não disponível. Atualize esta página em instantes para tentar novamente.'
+          `${data?.message || 'QR Code ainda não disponível, aguardando...'} (tentativa ${attempt + 1})`
         );
         setQrCode(null);
         setQrCodeAscii(null);
+
+        // Auto retry após delay
+        if (attempt < 10) {
+          retryTimeoutRef.current = setTimeout(() => fetchQrCode(attempt + 1), retryDelay);
+        } else {
+          setError('Tempo limite excedido. Por favor, tente novamente manualmente.');
+          setLoading(false);
+        }
         return;
       }
 
@@ -40,17 +66,25 @@ export default function QrCodePage() {
       if (!imageSource && !data.asciiQr && data?.message) {
         setStatusMessage(data.message);
       }
+      setLoading(false);
     } catch (error) {
       console.error('Erro ao buscar QR Code:', error);
-      setError(error.message || 'Falha desconhecida ao carregar o QR Code.');
-    } finally {
+
+      if (error.name === 'AbortError') {
+        setError('Tempo limite de conexão excedido. Verifique sua conexão e tente novamente.');
+      } else {
+        setError(error.message || 'Falha desconhecida ao carregar o QR Code.');
+      }
       setLoading(false);
     }
   };
 
   const handleRetry = () => {
     if (!loading) {
-      fetchQrCode();
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
+      fetchQrCode(0);
     }
   };
 

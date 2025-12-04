@@ -171,13 +171,21 @@ export default function ConfigurarWhatsapp() {
       const { data, status } = await fetchFromSender('/qrcode');
 
       if (status === 202) {
+        const retryDelay = Math.min(3000 + attempt * 500, 10000); // Backoff progressivo, max 10s
         setStatusMessage(
           `${
             data?.message || 'QR Code ainda não disponível, tentando novamente...'
           } (tentativa ${attempt + 1})`
         );
         clearRetryTimeout();
-        retryTimeoutRef.current = setTimeout(() => fetchQrCode(attempt + 1), 3000);
+
+        // Limita tentativas automáticas para evitar loops infinitos
+        if (attempt < 15) {
+          retryTimeoutRef.current = setTimeout(() => fetchQrCode(attempt + 1), retryDelay);
+        } else {
+          setError('Tempo limite excedido ao aguardar QR Code. Por favor, tente novamente.');
+          setLoading(false);
+        }
         setQrCode(null);
         setQrCodeAscii(null);
         return;
@@ -238,17 +246,17 @@ export default function ConfigurarWhatsapp() {
   const startConnectionPolling = () => {
     clearPollingInterval();
 
+    let pollAttempts = 0;
+    const maxPollAttempts = 100; // 100 tentativas * 3s = 5 minutos
+
     const interval = setInterval(async () => {
+      pollAttempts++;
+
       try {
         const { data } = await fetchFromSender('/status');
 
         if (data.whatsappStatus === 'connected') {
-          clearInterval(interval);
-          pollingIntervalRef.current = null;
-          if (pollingStopTimeoutRef.current) {
-            clearTimeout(pollingStopTimeoutRef.current);
-            pollingStopTimeoutRef.current = null;
-          }
+          clearPollingInterval();
           setConnectionStatus('connected');
           setStatusMessage('Conexão estabelecida! Redirecionando...');
 
@@ -256,25 +264,31 @@ export default function ConfigurarWhatsapp() {
           setTimeout(() => {
             navigate('/dashboard');
           }, 2000);
+          return;
+        }
+
+        // Verifica se atingiu o limite de tentativas
+        if (pollAttempts >= maxPollAttempts) {
+          clearPollingInterval();
+          setError('Tempo limite excedido ao aguardar conexão. Por favor, tente escanear o QR Code novamente.');
+          setLoading(false);
         }
       } catch (error) {
         console.error('Erro no polling:', error);
+        // Se houver muitos erros consecutivos, para o polling
+        if (pollAttempts >= 10) {
+          clearPollingInterval();
+          setError('Erro ao verificar status da conexão. Por favor, recarregue a página.');
+        }
       }
     }, 3000); // Verifica a cada 3 segundos
 
     pollingIntervalRef.current = interval;
-
-    // Para o polling após 5 minutos para evitar loops infinitos
-    pollingStopTimeoutRef.current = setTimeout(() => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-    }, 300000);
   };
 
   const regenerateQrCode = () => {
     clearRetryTimeout();
+    clearPollingInterval(); // Limpa polling anterior
     setLoading(true);
     setError(null);
     setQrCode(null);

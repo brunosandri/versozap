@@ -155,7 +155,7 @@ async function startVenomClient({ force = false } = {}) {
     return client;
   }
 
-if (force && client) {
+  if (force && client) {
     try {
       await client.close();
     } catch (error) {
@@ -165,40 +165,49 @@ if (force && client) {
   }
 
   if (venomInitPromise && !force) {
+    console.log('🔄 Retornando inicialização em andamento...');
     return venomInitPromise;
   }
 
   if (venomInitPromise && force) {
+    console.log('⚠️ Forçando nova inicialização, aguardando conclusão da anterior...');
     try {
       await venomInitPromise;
     } catch (error) {
       console.warn('⚠️ Inicialização anterior do Venom falhou:', error.message);
     }
+    venomInitPromise = null;
   }
 
   connectionStatus = 'initializing';
+  console.log('🔧 Iniciando conexão com o WhatsApp...');
 
   venomInitPromise = venom
     .create(venomConfig)
     .then((cli) => {
+      if (!cli) {
+        throw new Error('Venom Bot retornou cliente nulo');
+      }
       client = cli;
       connectionStatus = 'connecting';
       clearCachedQrCode();
       setupClientEventHandlers();
       processMessageQueue();
+      console.log('✅ Cliente Venom inicializado com sucesso');
       return client;
     })
     .catch((error) => {
       console.error('❌ Erro ao conectar com o WhatsApp:', error);
       connectionStatus = 'error';
+      client = null;
       notifyQrCodeWaiters();
       throw error;
     })
     .finally(() => {
       venomInitPromise = null;
     });
-  
-    return venomInitPromise;
+
+  return venomInitPromise;
 }
 
 function clearCachedQrCode() {
@@ -241,10 +250,17 @@ function setupClientEventHandlers() {
     console.log('Stream mudou:', state);
     if (state === 'DISCONNECTED') {
       connectionStatus = 'disconnected';
-      console.log('⚠️ WhatsApp desconectado. Tentando reconectar...');
-      startVenomClient({ force: true }).catch((error) => {
-        console.error('❌ Falha ao reiniciar cliente após desconexão:', error.message);
-      });
+      console.log('⚠️ WhatsApp desconectado. Aguardando antes de reconectar...');
+
+      // Aguarda 5 segundos antes de tentar reconectar para evitar loops rápidos
+      setTimeout(() => {
+        if (connectionStatus === 'disconnected') {
+          console.log('🔄 Iniciando reconexão...');
+          startVenomClient({ force: true }).catch((error) => {
+            console.error('❌ Falha ao reiniciar cliente após desconexão:', error.message);
+          });
+        }
+      }, 5000);
     }
   });
 
@@ -252,10 +268,16 @@ function setupClientEventHandlers() {
     client.onLogout(() => {
       console.log('🚪 Logout detectado. Preparando novo QR Code...');
       connectionStatus = 'disconnected';
-      startVenomClient({ force: true }).catch((error) => {
-        console.error('❌ Falha ao reiniciar cliente após logout:', error.message);
+      client = null;
+
+      // Aguarda 3 segundos antes de tentar reconectar após logout
+      setTimeout(() => {
+        console.log('🔄 Reiniciando após logout...');
+        startVenomClient({ force: true }).catch((error) => {
+          console.error('❌ Falha ao reiniciar cliente após logout:', error.message);
+        });
+      }, 3000);
     });
-  });
   }
 }
 
@@ -604,21 +626,44 @@ app.get('/qrcode', async (req, res) => {
       });
     }
 
-    startVenomClient().catch((error) => {
-      console.error('❌ Falha ao inicializar cliente ao solicitar QR Code:', error.message);
-    });
+    // Verifica se há erro persistente
+    if (connectionStatus === 'error') {
+      console.log('⚠️ Status de erro detectado, forçando reinicialização...');
+      connectionStatus = 'idle';
+    }
 
+    // Tenta inicializar o cliente se necessário
+    if (!client && !venomInitPromise && connectionStatus === 'idle') {
+      console.log('🔧 Iniciando cliente Venom para geração de QR Code...');
+      startVenomClient().catch((error) => {
+        console.error('❌ Falha ao inicializar cliente ao solicitar QR Code:', error.message);
+        connectionStatus = 'error';
+      });
+    }
+
+    // Aguarda QR Code se não estiver disponível
     if (!lastQrCode && !lastQrCodeAscii) {
-      const hasQrCode = await waitForQrCode(10000);
+      const hasQrCode = await waitForQrCode(15000); // Aumenta timeout para 15s
 
       if (!hasQrCode) {
+        // Verifica novamente o status após timeout
+        if (connectionStatus === 'error') {
+          return res.status(503).json({
+            erro: 'Erro ao inicializar conexão com WhatsApp',
+            message: 'Houve um problema ao conectar. Por favor, tente novamente.',
+            status: connectionStatus
+          });
+        }
+
         return res.status(202).json({
           message: 'QR Code ainda não disponível, tente novamente em instantes',
-          status: connectionStatus
+          status: connectionStatus,
+          hint: connectionStatus === 'initializing' ? 'Inicializando conexão...' : 'Aguardando QR Code...'
         });
       }
     }
 
+    // Última verificação antes de retornar
     if (!lastQrCode && !lastQrCodeAscii) {
       return res.status(202).json({
         message: 'QR Code ainda não disponível, tente novamente em instantes',
@@ -639,7 +684,8 @@ app.get('/qrcode', async (req, res) => {
     console.error('Erro ao obter QR Code:', error);
     return res.status(500).json({
       erro: 'Erro interno ao gerar QR Code',
-      detalhes: error.message
+      detalhes: error.message,
+      status: connectionStatus
     });
   }
 });
