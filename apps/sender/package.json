@@ -9,10 +9,10 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.18.2",
-    "venom-bot": "^5.1.1"
+    "venom-bot": "^5.1.3"
   },
   "engines": {
-    "node": ">=18"
+    "node": "22.x"
   },
   "keywords": [],
   "author": "Bruno Sandri",
