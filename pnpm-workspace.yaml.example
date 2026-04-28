@@ -1,0 +1,3 @@
+packages:
+  - "apps/*"
+# Ative isto quando quiser usar pnpm workspaces. Salve o arquivo como pnpm-workspace.yaml na raiz.
