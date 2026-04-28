@@ -4,7 +4,8 @@
   "description": "Serviço de envio de mensagens do VersoZap via WhatsApp",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "node index.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -12,7 +13,7 @@
     "venom-bot": "^5.1.3"
   },
   "engines": {
-    "node": "22.x"
+    "node": ">=20 <25"
   },
   "keywords": [],
   "author": "Bruno Sandri",

@@ -7,20 +7,22 @@ Este serviço Node.js é responsável por enviar mensagens e áudios via WhatsAp
 | Variável | Obrigatória | Descrição |
 | --- | --- | --- |
 | `SENDER_AUTH_TOKEN` | Opcional (recomendada) | Token compartilhado utilizado para autenticar as requisições que chegam ao serviço. Configure o mesmo valor no backend (`apps/backend`) para que ele envie as requisições com o cabeçalho apropriado. |
-| `PORT` | Opcional | Porta utilizada pelo servidor Express. A Vercel define automaticamente este valor durante o deploy. |
-| `SENDER_SESSION_DIR` | Opcional | Diretório onde o Venom irá salvar os arquivos de sessão. Em produção (Vercel) o serviço utiliza `/tmp/versozap-sessions` automaticamente. |
+| `PORT` | Opcional | Porta utilizada pelo servidor Express. |
+| `SENDER_SESSION_DIR` | Opcional | Diretório onde o Venom irá salvar os arquivos de sessão. Em produção use um diretório persistente do serviço, como `/app/.sessions` no Docker. |
 | `SENDER_SESSION_NAME` | Opcional | Nome da sessão utilizada pelo Venom. Útil para separar múltiplas instâncias. |
 | `SENDER_TOKEN_FOLDER` | Opcional | Nome da pasta de tokens criada pelo Venom (padrão `versozap-tokens`). |
 
 > Caso `SENDER_AUTH_TOKEN` esteja definida, todas as rotas `POST` sensíveis (`/enviar`, `/enviar-audio`, `/clear-queue`, `/reconnect`) exigirão que o token seja enviado no cabeçalho `Authorization` (formato `Bearer <token>`) ou no cabeçalho `x-api-key`.
 
-## Deploy na Vercel
+## Deploy persistente
 
-1. Faça o push deste repositório para a Vercel.
-2. Crie uma variável de ambiente `SENDER_AUTH_TOKEN` nas configurações do projeto (Production, Preview e Development, se necessário).
-3. Garanta que o backend (`apps/backend`) também possua a variável `SENDER_AUTH_TOKEN` com o mesmo valor, permitindo que as requisições sejam autenticadas automaticamente.
+Use uma plataforma com processo Node.js persistente, como Railway, Render ou servidor próprio. O Venom precisa manter o Chromium aberto para gerar QR Code, salvar sessão e enviar mensagens.
 
-Com isso, o serviço ficará protegido e pronto para ser utilizado pela aplicação principal.
+1. Configure `SENDER_AUTH_TOKEN` no sender.
+2. Configure o mesmo `SENDER_AUTH_TOKEN` no backend.
+3. Configure `SENDER_URL` no backend com a URL base do sender, sem caminho de endpoint. Exemplo: `https://seu-sender.up.railway.app`.
+
+Deploy em Vercel/serverless não é indicado para este serviço porque a função pode encerrar antes do Chromium gerar o QR Code ou manter a sessão.
 
 ## Pré-requisitos para o QR Code do WhatsApp
 

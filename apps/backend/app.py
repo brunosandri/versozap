@@ -32,6 +32,12 @@ def _normalize_sender_url(value: str | None) -> str | None:
     if normalized.endswith('/'):
         normalized = normalized[:-1]
 
+    # Keep compatibility with older env examples that pointed directly to an endpoint.
+    for suffix in ("/enviar", "/enviar-audio", "/status", "/qrcode", "/health"):
+        if normalized.endswith(suffix):
+            normalized = normalized[: -len(suffix)]
+            break
+
     return normalized
 
 
@@ -126,6 +132,44 @@ def _sender_endpoint(path: str = "") -> str | None:
         return f"{SENDER_BASE_URL}/{clean_path}"
 
     return SENDER_BASE_URL
+
+
+def _sender_error_response(message: str, status_code: int = 503):
+    return jsonify({
+        "erro": message,
+        "senderConfigured": bool(SENDER_BASE_URL),
+        "timestamp": datetime.now().isoformat(),
+    }), status_code
+
+
+@app.get("/api/whatsapp/status")
+def whatsapp_status():
+    status_url = _sender_endpoint("status")
+    if not status_url:
+        return _sender_error_response("SENDER_URL não configurada")
+
+    try:
+        response = requests.get(status_url, headers=_sender_headers(), timeout=10)
+        payload = response.json() if response.content else {}
+        return jsonify(payload), response.status_code
+    except requests.RequestException as error:
+        log_error(LogCategory.SYSTEM, "Erro ao consultar status do Sender", error=error)
+        return _sender_error_response("Não foi possível consultar o serviço Sender")
+
+
+@app.get("/api/whatsapp/qrcode")
+def whatsapp_qrcode():
+    qrcode_url = _sender_endpoint("qrcode")
+    if not qrcode_url:
+        return _sender_error_response("SENDER_URL não configurada")
+
+    try:
+        response = requests.get(qrcode_url, headers=_sender_headers(), timeout=20)
+        payload = response.json() if response.content else {}
+        return jsonify(payload), response.status_code
+    except requests.RequestException as error:
+        log_error(LogCategory.SYSTEM, "Erro ao obter QR Code do Sender", error=error)
+        return _sender_error_response("Não foi possível obter o QR Code do serviço Sender")
 
 
 def enviar_leitura_diaria():

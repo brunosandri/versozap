@@ -9,6 +9,11 @@ app.use(cors());
 app.use(express.json());
 
 const senderAuthToken = process.env.SENDER_AUTH_TOKEN || process.env.AUTH_TOKEN || null;
+const browserPathExecutable =
+  process.env.CHROME_BIN ||
+  process.env.CHROMIUM_PATH ||
+  process.env.PUPPETEER_EXECUTABLE_PATH ||
+  null;
 
 const sessionStorageDir = (() => {
   if (process.env.SENDER_SESSION_DIR) {
@@ -109,8 +114,9 @@ function normalizeQrCodePayload(base64Qr) {
 const venomConfig = {
   session: process.env.SENDER_SESSION_NAME || 'versozap',
   multidevice: true,
-  headless: true,
+  headless: process.env.SENDER_HEADLESS || 'new',
   disableSpins: true,
+  disableWelcome: true,
   logQR: false,
   updatesLog: false,
   autoClose: 0,
@@ -130,6 +136,7 @@ const venomConfig = {
   },
   folderNameToken: process.env.SENDER_TOKEN_FOLDER || 'versozap-tokens',
   mkdirFolderToken: sessionStorageDir,
+  ...(browserPathExecutable ? { browserPathExecutable } : {}),
   addBrowserArgs: [
     '--no-sandbox',
     '--disable-setuid-sandbox',
@@ -140,6 +147,33 @@ const venomConfig = {
     '--no-zygote',
     '--disable-background-networking',
   ],
+  statusFind: (statusSession, session) => {
+    console.log(`Estado Venom [${session}]: ${statusSession}`);
+
+    if (statusSession === 'isLogged' || statusSession === 'chatsAvailable' || statusSession === 'successChat') {
+      connectionStatus = 'connected';
+      clearCachedQrCode();
+      notifyQrCodeWaiters();
+    } else if (statusSession === 'notLogged' || statusSession === 'waitForLogin' || statusSession === 'qrReadFail') {
+      connectionStatus = 'qrcode';
+    } else if (
+      statusSession === 'initBrowser' ||
+      statusSession === 'openBrowser' ||
+      statusSession === 'connectBrowserWs' ||
+      statusSession === 'initWhatsapp' ||
+      statusSession === 'successPageWhatsapp'
+    ) {
+      connectionStatus = 'initializing';
+    } else if (
+      statusSession === 'browserClose' ||
+      statusSession === 'desconnectedMobile' ||
+      statusSession === 'deviceNotConnected' ||
+      statusSession === 'noOpenBrowser' ||
+      statusSession === 'erroPageWhatsapp'
+    ) {
+      connectionStatus = 'disconnected';
+    }
+  },
 };
 
 // Configurações
@@ -718,16 +752,16 @@ app.post('/reconnect', requireAuth, async (req, res) => {
 // Health check endpoint
 app.get('/health', (req, res) => {
   const health = {
-    status: connectionStatus === 'connected' ? 'healthy' : 'unhealthy',
+    status: 'healthy',
     whatsapp: connectionStatus,
+    readyToSend: connectionStatus === 'connected',
     uptime: process.uptime(),
     memory: process.memoryUsage(),
     version: '2.0.0',
     timestamp: new Date().toISOString()
   };
   
-  const statusCode = health.status === 'healthy' ? 200 : 503;
-  res.status(statusCode).json(health);
+  res.status(200).json(health);
 });
 
 // Middleware de tratamento de erros

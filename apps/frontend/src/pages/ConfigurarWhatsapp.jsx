@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiUrl } from '../utils/api';
 
 export default function ConfigurarWhatsapp() {
   const [qrCode, setQrCode] = useState(null);
@@ -30,8 +31,7 @@ export default function ConfigurarWhatsapp() {
       }
     }
 
-    urls.push('https://versozap-sender.vercel.app');
-    urls.push('https://versozap-sender-git-main-versozap.vercel.app');
+    urls.push('__backend__');
 
     return [...new Set(urls.filter(Boolean))];
   }, []);
@@ -62,7 +62,12 @@ export default function ConfigurarWhatsapp() {
         }
 
         try {
-          const response = await fetch(`${baseUrl}${endpoint}`, {
+          const url =
+            baseUrl === '__backend__'
+              ? apiUrl(`/api/whatsapp${endpoint}`)
+              : `${baseUrl}${endpoint}`;
+
+          const response = await fetch(url, {
             headers: { Accept: 'application/json', ...(options?.headers || {}) },
             ...options
           });
@@ -79,7 +84,7 @@ export default function ConfigurarWhatsapp() {
             continue;
           }
 
-          setActiveSenderUrl(baseUrl);
+          setActiveSenderUrl(baseUrl === '__backend__' ? 'backend proxy' : baseUrl);
 
           return { data, status, baseUrl };
         } catch (error) {

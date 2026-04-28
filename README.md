@@ -22,10 +22,12 @@ Cada app é independente.
 
 ```bash
 cd apps/frontend && npm install && npm run dev
-cd apps/backend  && npm install && npm run dev
+cd apps/backend  && pip install -r requirements.txt && python app.py
 cd apps/admin    && npm install && npm run dev
-cd apps/sender   && npm install && npm run dev
+cd apps/sender   && npm ci && npm run dev
 ```
+
+Para o envio por WhatsApp, mantenha o `apps/sender` rodando como processo persistente e configure o backend com `SENDER_URL` apontando para a URL base do sender, por exemplo `http://localhost:3000`.
 
 ## Próximos passos opcionais
 

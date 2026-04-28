@@ -4,6 +4,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+.npm-cache/
 dist/
 build/
 .next/
@@ -12,6 +13,7 @@ coverage/
 # Env
 .env
 .env.*
+!.env.example
 
 # OS
 .DS_Store

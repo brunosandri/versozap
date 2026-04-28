@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { apiUrl } from '../utils/api';
 
 export default function QrCodePage() {
   const [qrCode, setQrCode] = useState(null);
@@ -30,10 +31,9 @@ export default function QrCodePage() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 segundos timeout
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SENDER_URL || 'https://versozap-sender-git-main-versozap.vercel.app'}/qrcode`,
-        { signal: controller.signal }
-      );
+      const senderUrl = import.meta.env.VITE_SENDER_URL?.trim().replace(/\/$/, '');
+      const qrcodeUrl = senderUrl ? `${senderUrl}/qrcode` : apiUrl('/api/whatsapp/qrcode');
+      const response = await fetch(qrcodeUrl, { signal: controller.signal });
 
       clearTimeout(timeoutId);
 

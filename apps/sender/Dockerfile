@@ -1,6 +1,11 @@
 # Usa uma imagem base leve com Node 20
 FROM node:20-slim
 
+ENV CHROME_BIN=/usr/bin/chromium \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+    PUPPETEER_SKIP_DOWNLOAD=true \
+    SENDER_SESSION_DIR=/app/.sessions
+
 # Instala Chromium e dependências para o Puppeteer funcionar
 RUN apt-get update && apt-get install -y \
     chromium \
@@ -28,7 +33,7 @@ WORKDIR /app
 
 # Copia apenas os arquivos de dependência e instala
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
 # Copia o restante do código
 COPY . .
@@ -38,5 +43,4 @@ EXPOSE 3000
 
 # Inicia o app
 CMD ["node", "index.js"]
-
 
