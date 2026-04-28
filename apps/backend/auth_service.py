@@ -7,7 +7,7 @@ Integração com Google OAuth2 e Facebook Login
 import os
 import requests
 import jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 from dotenv import load_dotenv
@@ -126,8 +126,8 @@ class AuthService:
             'sub': str(user_id),
             'email': email,
             'provider': provider,
-            'iat': datetime.utcnow(),
-            'exp': datetime.utcnow() + timedelta(days=7)
+            'iat': datetime.now(UTC),
+            'exp': datetime.now(UTC) + timedelta(days=7)
         }
         
         return jwt.encode(payload, self.jwt_secret, algorithm='HS256')

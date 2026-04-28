@@ -7,7 +7,7 @@ Script de teste para o sistema de autenticação social do VersoZap
 import sys
 import os
 import requests
-import json
+import pytest
 from datetime import datetime
 
 # Adiciona o diretório atual ao path
@@ -39,15 +39,11 @@ def test_jwt_token_generation():
     # Valida token
     payload = auth_service.validate_jwt_token(token)
     
-    if payload:
-        print("Token válido!")
-        print(f"User ID: {payload['sub']}")
-        print(f"Email: {payload['email']}")
-        print(f"Provider: {payload['provider']}")
-        return True
-    else:
-        print("Erro: Token inválido")
-        return False
+    assert payload is not None, "Erro: Token inválido"
+    print("Token válido!")
+    print(f"User ID: {payload['sub']}")
+    print(f"Email: {payload['email']}")
+    print(f"Provider: {payload['provider']}")
 
 def test_oauth_urls():
     """Testa geração de URLs OAuth"""
@@ -58,7 +54,7 @@ def test_oauth_urls():
     print(f"URL Google: {urls.get('google', 'Não gerada')[:100]}...")
     print(f"URL Facebook: {urls.get('facebook', 'Não gerada')[:100]}...")
     
-    return 'google' in urls and 'facebook' in urls
+    assert 'google' in urls and 'facebook' in urls
 
 def test_invalid_tokens():
     """Testa validação de tokens inválidos"""
@@ -68,12 +64,8 @@ def test_invalid_tokens():
     invalid_token = "token_completamente_invalido"
     result = auth_service.validate_jwt_token(invalid_token)
     
-    if result is None:
-        print("Token invalido rejeitado corretamente")
-        return True
-    else:
-        print("Erro: Token invalido foi aceito")
-        return False
+    assert result is None, "Erro: Token invalido foi aceito"
+    print("Token invalido rejeitado corretamente")
 
 def test_backend_endpoints():
     """Testa endpoints do backend (requer Flask rodando)"""
@@ -84,33 +76,20 @@ def test_backend_endpoints():
     try:
         # Testa endpoint de URLs OAuth
         response = requests.get(f"{base_url}/api/auth/urls", timeout=5)
-        if response.status_code == 200:
-            print("Endpoint /api/auth/urls funcionando")
-            urls = response.json()
-            print(f"URLs retornadas: {list(urls.get('urls', {}).keys())}")
-        else:
-            print(f"Endpoint /api/auth/urls retornou {response.status_code}")
-            return False
+        assert response.status_code == 200, f"Endpoint /api/auth/urls retornou {response.status_code}"
+        print("Endpoint /api/auth/urls funcionando")
+        urls = response.json()
+        print(f"URLs retornadas: {list(urls.get('urls', {}).keys())}")
             
         # Testa endpoint de versões da Bíblia (para verificar se o server está rodando)
         response = requests.get(f"{base_url}/api/versoes-biblia", timeout=5)
-        if response.status_code == 200:
-            print("Backend esta respondendo corretamente")
-            return True
-        else:
-            print(f"Backend retornou {response.status_code}")
-            return False
+        assert response.status_code == 200, f"Backend retornou {response.status_code}"
+        print("Backend esta respondendo corretamente")
             
     except requests.exceptions.ConnectionError:
-        print("Backend nao esta rodando (ConnectionError)")
-        print("   Para testar completamente, execute: python app.py")
-        return False
+        pytest.skip("Backend nao esta rodando (ConnectionError). Para testar completamente, execute: python app.py")
     except requests.exceptions.Timeout:
-        print("Backend nao respondeu em tempo habil")
-        return False
-    except Exception as e:
-        print(f"Erro inesperado: {e}")
-        return False
+        pytest.skip("Backend nao respondeu em tempo habil")
 
 def test_token_validation_endpoint():
     """Testa endpoint de validação de token"""
@@ -130,25 +109,14 @@ def test_token_validation_endpoint():
         
         response = requests.post(f"{base_url}/api/auth/validate", headers=headers, timeout=5)
         
-        if response.status_code == 200:
-            data = response.json()
-            if data.get('valid'):
-                print("Validacao de token via API funcionando")
-                print(f"User ID retornado: {data.get('user_id')}")
-                return True
-            else:
-                print("Token valido foi rejeitado pela API")
-                return False
-        else:
-            print(f"API de validacao retornou {response.status_code}")
-            return False
+        assert response.status_code == 200, f"API de validacao retornou {response.status_code}"
+        data = response.json()
+        assert data.get('valid'), "Token valido foi rejeitado pela API"
+        print("Validacao de token via API funcionando")
+        print(f"User ID retornado: {data.get('user_id')}")
             
     except requests.exceptions.ConnectionError:
-        print("Backend nao esta rodando")
-        return False
-    except Exception as e:
-        print(f"Erro: {e}")
-        return False
+        pytest.skip("Backend nao esta rodando")
 
 def generate_test_report():
     """Gera relatório final dos testes"""
@@ -168,8 +136,8 @@ def generate_test_report():
     results = []
     for name, test_func in tests:
         try:
-            result = test_func()
-            results.append((name, result))
+            test_func()
+            results.append((name, True))
             print()
         except Exception as e:
             print(f"ERRO em {name}: {e}")
