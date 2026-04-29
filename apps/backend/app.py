@@ -1018,7 +1018,7 @@ if not SENDER_BASE_URL:
 
 if __name__ == "__main__":
     try:
-        port = int(os.getenv("PORT", 5000))
+        port = int(os.getenv("PORT", 8080))
         debug_mode = os.getenv("FLASK_ENV", "development") == "development"
         
         log_info(LogCategory.SYSTEM, f"Iniciando servidor Flask na porta {port}")

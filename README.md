@@ -27,6 +27,8 @@ cd apps/admin    && npm install && npm run dev
 cd apps/sender   && npm ci && npm run dev
 ```
 
+O backend escuta a porta definida em `PORT`. No Railway, use `Target port` igual a `8080`. Para rodar localmente em `5000`, defina `PORT=5000` antes de iniciar o Flask.
+
 Para rodar os testes do backend:
 
 ```bash
