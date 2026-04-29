@@ -9,11 +9,22 @@ app.use(cors());
 app.use(express.json());
 
 const senderAuthToken = process.env.SENDER_AUTH_TOKEN || process.env.AUTH_TOKEN || null;
-const browserPathExecutable =
-  process.env.CHROME_BIN ||
-  process.env.CHROMIUM_PATH ||
-  process.env.PUPPETEER_EXECUTABLE_PATH ||
-  null;
+const browserPathCandidates = [
+  process.env.PUPPETEER_EXECUTABLE_PATH,
+  process.env.CHROME_BIN,
+  process.env.CHROMIUM_PATH,
+  '/usr/bin/chromium',
+  '/usr/bin/chromium-browser',
+  '/snap/bin/chromium',
+].filter(Boolean);
+
+const browserPathExecutable = browserPathCandidates.find((candidate) => {
+  try {
+    return fs.existsSync(candidate);
+  } catch {
+    return false;
+  }
+}) || null;
 
 const sessionStorageDir = (() => {
   if (process.env.SENDER_SESSION_DIR) {
@@ -77,6 +88,7 @@ let lastQrCodeAscii = null;
 let lastQrCodeTimestamp = null;
 let lastQrCodeAttempts = 0;
 let venomInitPromise = null;
+let lastInitializationError = null;
 const qrCodeWaiters = new Set();
 
 function normalizeQrCodePayload(base64Qr) {
@@ -110,7 +122,7 @@ function normalizeQrCodePayload(base64Qr) {
 const venomConfig = {
   session: process.env.SENDER_SESSION_NAME || 'versozap',
   multidevice: true,
-  headless: process.env.SENDER_HEADLESS || 'new',
+  headless: process.env.SENDER_HEADLESS || 'old',
   disableSpins: true,
   disableWelcome: true,
   logQR: false,
@@ -216,6 +228,7 @@ async function startVenomClient({ force = false } = {}) {
         throw new Error('Venom Bot retornou cliente nulo');
       }
       client = cli;
+      lastInitializationError = null;
       connectionStatus = 'connecting';
       clearCachedQrCode();
       setupClientEventHandlers();
@@ -615,6 +628,7 @@ app.get('/status', (req, res) => {
     queueSize: messageQueue.length,
     isProcessingQueue,
     uptime: process.uptime(),
+    lastInitializationError,
     lastMessageTime: new Date(lastMessageTime).toISOString(),
     config: {
       rateLimitDelay: config.rateLimitDelay,
@@ -708,7 +722,8 @@ app.get('/qrcode', async (req, res) => {
     return res.status(500).json({
       erro: 'Erro interno ao gerar QR Code',
       detalhes: error.message,
-      status: connectionStatus
+      status: connectionStatus,
+      initializationError: lastInitializationError
     });
   }
 });
