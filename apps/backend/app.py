@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, date
 from werkzeug.security import generate_password_hash, check_password_hash
 import os, re, requests, time
 from dotenv import load_dotenv
+from sqlalchemy.exc import IntegrityError
 from bible_service import biblia_service, obter_trecho_do_dia
 from auth_service import auth_service
 from database_manager import db_manager, initialize_database
@@ -264,10 +265,19 @@ def register_email():
         user.password_hash = generate_password_hash(password)
         db.add(user)
         db.commit()
+        db.refresh(user)
+        return jsonify(message="ok"), 201
+    except IntegrityError as error:
+        db.rollback()
+        log_error(LogCategory.SYSTEM, "Falha ao cadastrar usuário por e-mail", error=error)
+        return jsonify(error="Não foi possível concluir o cadastro. Verifique se o e-mail já está em uso."), 409
+    except Exception as error:
+        db.rollback()
+        log_error(LogCategory.SYSTEM, "Erro inesperado ao cadastrar usuário por e-mail", error=error)
+        return jsonify(error="Erro interno ao cadastrar usuário"), 500
     finally:
         db.close()
 
-    return jsonify(message="ok"), 201
 @app.post("/api/login")
 def login_email():
     data = request.get_json() or {}
@@ -304,24 +314,45 @@ def login_email():
 def cadastrar_usuario_telefone():
     data = request.get_json() or {}
     db = SessionLocal()
+    nome = (data.get("nome") or "").strip()
+    telefone = (data.get("telefone") or "").strip()
+    versao_biblia = (data.get("versao_biblia") or "ARC").strip()
+    plano_leitura = (data.get("plano_leitura") or "cronologico").strip()
+    tipo_ordem = (data.get("tipo_ordem") or "normal").strip()
+    horario_envio = (data.get("horario_envio") or "08:00").strip()
 
-    if db.query(Usuario).filter_by(telefone=data.get("telefone")).first():
-        return jsonify({"erro": "Usuário já cadastrado"}), 400
+    if not nome or not telefone:
+        db.close()
+        return jsonify(error="Nome e telefone são obrigatórios"), 400
 
-    novo_usuario = Usuario(
-        nome=data.get("nome"),
-        telefone=data.get("telefone"),
-        versao_biblia=data.get("versao_biblia"),
-        plano_leitura=data.get("plano_leitura"),
-        tipo_ordem=data.get("tipo_ordem"),
-        horario_envio=data.get("horario_envio"),
-    )
+    try:
+        if db.query(Usuario).filter_by(telefone=telefone).first():
+            return jsonify(error="Usuário já cadastrado"), 409
 
-    db.add(novo_usuario)
-    db.commit()
-    db.refresh(novo_usuario)
+        novo_usuario = Usuario(
+            nome=nome,
+            telefone=telefone,
+            versao_biblia=versao_biblia,
+            plano_leitura=plano_leitura,
+            tipo_ordem=tipo_ordem,
+            horario_envio=horario_envio,
+        )
 
-    return jsonify({"mensagem": "Usuário cadastrado com sucesso", "id": novo_usuario.id}), 201
+        db.add(novo_usuario)
+        db.commit()
+        db.refresh(novo_usuario)
+
+        return jsonify(mensagem="Usuário cadastrado com sucesso", id=novo_usuario.id), 201
+    except IntegrityError as error:
+        db.rollback()
+        log_error(LogCategory.SYSTEM, "Falha ao cadastrar usuário por telefone", error=error)
+        return jsonify(error="Não foi possível concluir o cadastro. Verifique se o telefone já está em uso."), 409
+    except Exception as error:
+        db.rollback()
+        log_error(LogCategory.SYSTEM, "Erro inesperado ao cadastrar usuário por telefone", error=error)
+        return jsonify(error="Erro interno ao cadastrar usuário"), 500
+    finally:
+        db.close()
 
 # ---------------------------------------------------------------------------
 # Endpoints de leitura via WhatsApp (reaproveitados)
