@@ -20,10 +20,6 @@ const sessionStorageDir = (() => {
     return path.resolve(process.env.SENDER_SESSION_DIR);
   }
 
-  if (process.env.VERCEL) {
-    return path.join('/tmp', 'versozap-sessions');
-  }
-
   return path.join(__dirname, '.sessions');
 })();
 
@@ -129,9 +125,6 @@ const venomConfig = {
     lastQrCodeTimestamp = new Date().toISOString();
     connectionStatus = 'qrcode';
     console.log('📸 Novo QR Code gerado (tentativa %d)', attempts);
-    if (process.env.VERCEL) {
-      console.log('🔄 Ambiente Vercel detectado — mantenha esta função aberta enquanto escaneia o QR Code.');
-    }
     notifyQrCodeWaiters();
   },
   folderNameToken: process.env.SENDER_TOKEN_FOLDER || 'versozap-tokens',
@@ -804,13 +797,9 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
-if (!process.env.VERCEL) {
-  app.listen(port, () => {
+app.listen(port, () => {
     console.log(`🚀 VersoZap Sender v2.0.0 rodando em http://localhost:${port}`);
     console.log(`📱 Status inicial: ${connectionStatus}`);
     console.log(`⚙️ Rate limit: ${config.rateLimitDelay}ms entre mensagens`);
     console.log(`🎵 Formatos de áudio suportados: ${config.audioFormats.join(', ')}`);
-  });
-}
-
-module.exports = app;
+});

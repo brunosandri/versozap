@@ -1,6 +1,6 @@
 # VersoZap Sender
 
-Este serviço Node.js é responsável por enviar mensagens e áudios via WhatsApp. Para hospedá-lo na Vercel (ou em qualquer outra plataforma), utilize variáveis de ambiente para controlar as credenciais de acesso.
+Este serviço Node.js é responsável por enviar mensagens e áudios via WhatsApp. Ele deve rodar como processo persistente, com variáveis de ambiente para controlar as credenciais de acesso.
 
 ## Variáveis de ambiente
 
@@ -24,13 +24,13 @@ Use uma plataforma com processo Node.js persistente, como Railway, Render ou ser
 
 Projeto Railway: https://railway.com/project/57b34133-4146-44c7-a2bb-2f169f8b900d
 
-Deploy em Vercel/serverless não é indicado para este serviço porque a função pode encerrar antes do Chromium gerar o QR Code ou manter a sessão.
+Deploy serverless não é indicado para este serviço porque a função pode encerrar antes do Chromium gerar o QR Code ou manter a sessão.
 
 ## Pré-requisitos para o QR Code do WhatsApp
 
 O endpoint `/qrcode` exposto neste serviço apenas retorna um código válido depois que o Venom inicializa completamente e dispara o callback `catchQR`. É ele quem salva o último QR code gerado em memória (`lastQrCode`) para que o frontend possa exibi-lo ao usuário. **Se o processo for interrompido antes disso, o QR code nunca fica disponível e a tela de conexão continua em “Carregando QR Code…”.**
 
-Por esse motivo, o VersoZap Sender precisa rodar em um ambiente com **processo Node.js persistente** (Railway, Render, servidor próprio etc.). Plataformas _serverless_ como a Vercel executam o arquivo `index.js` a cada requisição e encerram a função logo em seguida; nesse modelo o Venom não tem tempo de abrir o navegador headless, gerar o QR e atualizar as variáveis `lastQrCode`/`connectionStatus` que abastecem a rota `/qrcode`.
+Por esse motivo, o VersoZap Sender precisa rodar em um ambiente com **processo Node.js persistente** (Railway, Render, servidor próprio etc.). Em plataformas _serverless_, o processo pode ser encerrado logo após a requisição; nesse modelo o Venom não tem tempo de abrir o navegador headless, gerar o QR e atualizar as variáveis `lastQrCode`/`connectionStatus` que abastecem a rota `/qrcode`.
 
 Antes de testar o fluxo de conexão do usuário, garanta que:
 
@@ -65,7 +65,7 @@ está sendo preparado.
 
 O endpoint `/qrcode` exposto neste serviço apenas retorna um código válido depois que o Venom inicializa completamente e dispara o callback `catchQR`. É ele quem salva o último QR code gerado em memória (`lastQrCode`) para que o frontend possa exibi-lo ao usuário. **Se o processo for interrompido antes disso, o QR code nunca fica disponível e a tela de conexão continua em “Carregando QR Code…”.**
 
-Por esse motivo, o VersoZap Sender precisa rodar em um ambiente com **processo Node.js persistente** (Railway, Render, servidor próprio etc.). Plataformas _serverless_ como a Vercel executam o arquivo `index.js` a cada requisição e encerram a função logo em seguida; nesse modelo o Venom não tem tempo de abrir o navegador headless, gerar o QR e atualizar as variáveis `lastQrCode`/`connectionStatus` que abastecem a rota `/qrcode`.
+Por esse motivo, o VersoZap Sender precisa rodar em um ambiente com **processo Node.js persistente** (Railway, Render, servidor próprio etc.). Em plataformas _serverless_, o processo pode ser encerrado logo após a requisição; nesse modelo o Venom não tem tempo de abrir o navegador headless, gerar o QR e atualizar as variáveis `lastQrCode`/`connectionStatus` que abastecem a rota `/qrcode`.
 
 Antes de testar o fluxo de conexão do usuário, garanta que:
 

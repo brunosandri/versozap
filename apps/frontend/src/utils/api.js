@@ -1,5 +1,3 @@
-const DEFAULT_API_BASE_URL = 'https://versozap-backend.onrender.com';
-
 const normalizeBaseUrl = (base) => {
   const trimmed = base.trim();
   return trimmed.replace(/\/+$/, '');
@@ -11,14 +9,7 @@ const resolveBaseUrl = () => {
     return normalizeBaseUrl(envBase);
   }
 
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1') {
-      return '';
-    }
-  }
-
-  return DEFAULT_API_BASE_URL;
+  return '';
 };
 
 const API_BASE_URL = resolveBaseUrl();

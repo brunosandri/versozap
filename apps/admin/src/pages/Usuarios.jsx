@@ -1,12 +1,13 @@
 // src/pages/Usuarios.jsx
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { apiUrl } from "../../app/utils/api";
 
 export default function Usuarios() {
   const [usuarios, setUsuarios] = useState([]);
 
   useEffect(() => {
-    axios.get("https://versozap-backend.onrender.com/usuarios")
+    axios.get(apiUrl("/usuarios"))
       .then(res => setUsuarios(res.data))
       .catch(err => console.error("Erro ao buscar usuários", err));
   }, []);
