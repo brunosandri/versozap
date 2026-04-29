@@ -28,6 +28,7 @@ cd apps/sender   && npm ci && npm run dev
 ```
 
 O backend escuta a porta definida em `PORT`. No Railway, use `Target port` igual a `8080`. Para rodar localmente em `5000`, defina `PORT=5000` antes de iniciar o Flask.
+O Sender também deve usar `PORT=8080` e `Target port` igual a `8080` no Railway.
 
 Para rodar os testes do backend:
 

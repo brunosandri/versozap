@@ -7,7 +7,7 @@ Este serviço Node.js é responsável por enviar mensagens e áudios via WhatsAp
 | Variável | Obrigatória | Descrição |
 | --- | --- | --- |
 | `SENDER_AUTH_TOKEN` | Opcional (recomendada) | Token compartilhado utilizado para autenticar as requisições que chegam ao serviço. Configure o mesmo valor no backend (`apps/backend`) para que ele envie as requisições com o cabeçalho apropriado. |
-| `PORT` | Opcional | Porta utilizada pelo servidor Express. |
+| `PORT` | Opcional | Porta utilizada pelo servidor Express. Em Railway, use `8080` e configure o Public Networking com target port `8080`. |
 | `SENDER_SESSION_DIR` | Opcional | Diretório onde o Venom irá salvar os arquivos de sessão. Em produção use um diretório persistente do serviço, como `/app/.sessions` no Docker. |
 | `SENDER_SESSION_NAME` | Opcional | Nome da sessão utilizada pelo Venom. Útil para separar múltiplas instâncias. |
 | `SENDER_TOKEN_FOLDER` | Opcional | Nome da pasta de tokens criada pelo Venom (padrão `versozap-tokens`). |

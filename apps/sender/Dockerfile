@@ -39,8 +39,7 @@ RUN npm ci
 COPY . .
 
 # Expõe a porta da aplicação
-EXPOSE 3000
+EXPOSE 8080
 
 # Inicia o app
 CMD ["node", "index.js"]
-

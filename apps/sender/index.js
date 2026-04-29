@@ -637,7 +637,7 @@ app.post('/clear-queue', requireAuth, (req, res) => {
   });
 });
 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 8080;
 
 startVenomClient().catch((error) => {
   console.error('❌ Falha inicial ao conectar com o WhatsApp:', error.message);
