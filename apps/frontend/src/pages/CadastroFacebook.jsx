@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiUrl } from '../utils/api';
 
 export default function CadastroFacebook() {
   const [loading, setLoading] = useState(false);
@@ -50,7 +51,7 @@ export default function CadastroFacebook() {
 
   const authenticateWithBackend = async (accessToken) => {
     try {
-      const res = await fetch('/api/auth/facebook', {
+      const res = await fetch(apiUrl('/api/auth/facebook'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

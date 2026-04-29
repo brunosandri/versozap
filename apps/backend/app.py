@@ -251,22 +251,23 @@ def register_email():
     password = data.get("password", "")
 
     if not EMAIL_RE.match(email):
-        return jsonify(error="E-mail inválido"), 400
+        return jsonify(error="E-mail invalido"), 400
     if len(password) < 6:
         return jsonify(error="Senha deve ter 6+ caracteres"), 400
 
     db = SessionLocal()
-    if db.query(Usuario).filter_by(email=email).first():
-        return jsonify(error="E-mail já cadastrado"), 409
+    try:
+        if db.query(Usuario).filter_by(email=email).first():
+            return jsonify(error="E-mail ja cadastrado"), 409
 
-    user = Usuario(nome=email.split("@")[0], email=email)
-    user.password_hash = generate_password_hash(password)
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+        user = Usuario(nome=email.split("@")[0], email=email)
+        user.password_hash = generate_password_hash(password)
+        db.add(user)
+        db.commit()
+    finally:
+        db.close()
 
     return jsonify(message="ok"), 201
-
 @app.post("/api/login")
 def login_email():
     data = request.get_json() or {}
@@ -274,17 +275,28 @@ def login_email():
     password = data.get("password", "")
 
     db = SessionLocal()
-    user = db.query(Usuario).filter_by(email=email).first()
-    if not user or not user.password_hash:
-        return jsonify(error="Credenciais inválidas"), 401
-    
-    if not check_password_hash(user.password_hash, password):
-        return jsonify(error="Credenciais inválidas"), 401
+    try:
+        user = db.query(Usuario).filter_by(email=email).first()
+        if not user or not user.password_hash:
+            return jsonify(error="Credenciais invalidas"), 401
 
-    token = auth_service.generate_jwt_token(user.id, user.email, provider="email")
+        if not check_password_hash(user.password_hash, password):
+            return jsonify(error="Credenciais invalidas"), 401
 
-    return jsonify(token=token, user={"id": user.id, "nome": user.nome}), 200
+        token = auth_service.generate_jwt_token(user.id, user.email, provider="email")
+        user_payload = {
+            "id": user.id,
+            "nome": user.nome,
+            "email": user.email,
+            "telefone": user.telefone,
+            "versao_biblia": user.versao_biblia,
+            "plano_leitura": user.plano_leitura,
+            "horario_envio": user.horario_envio,
+        }
+    finally:
+        db.close()
 
+    return jsonify(token=token, user=user_payload), 200
 # ---------------------------------------------------------------------------
 # Cadastro via TELEFONE (rota legada)
 # ---------------------------------------------------------------------------
@@ -508,13 +520,14 @@ def atualizar_preferencias_usuario():
         usuario.plano_leitura = plano_leitura
     
     db.commit()
-    db.close()
-    
-    return jsonify({
-        "mensagem": "Preferências atualizadas com sucesso",
+    response_payload = {
+        "mensagem": "Preferencias atualizadas com sucesso",
         "versao_biblia": usuario.versao_biblia,
-        "plano_leitura": usuario.plano_leitura
-    })
+        "plano_leitura": usuario.plano_leitura,
+    }
+    db.close()
+
+    return jsonify(response_payload)
 
 # ---------------------------------------------------------------------------
 # Autenticação Social (Google e Facebook)

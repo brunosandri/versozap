@@ -1,10 +1,11 @@
 import { useLoaderData, useFetcher } from "react-router";
 import { useState } from "react";
 import type { Route } from "./+types/usuarios";
+import { apiUrl } from "~/utils/api";
 
 export async function clientLoader({}: Route.ClientLoaderArgs) {
   try {
-    const response = await fetch("https://versozap-backend.onrender.com/usuarios");
+    const response = await fetch(apiUrl("/usuarios"));
     if (response.ok) {
       const usuarios = await response.json();
       return { usuarios };

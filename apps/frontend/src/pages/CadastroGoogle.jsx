@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiUrl } from '../utils/api';
 
 export default function CadastroGoogle() {
   const [loading, setLoading] = useState(false);
@@ -33,7 +34,7 @@ export default function CadastroGoogle() {
     setError('');
 
     try {
-      const res = await fetch('/api/auth/google', {
+      const res = await fetch(apiUrl('/api/auth/google'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

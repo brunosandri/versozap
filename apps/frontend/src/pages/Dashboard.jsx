@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiUrl } from '../utils/api';
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
@@ -54,7 +55,7 @@ export default function Dashboard() {
       const token = localStorage.getItem('versozap_token');
       
       // Em produção, enviaria para /api/atualizar-preferencias
-      const response = await fetch('/api/atualizar-preferencias', {
+      const response = await fetch(apiUrl('/api/atualizar-preferencias'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -17,7 +17,7 @@ export default function CompletarCadastro() {
       if (savedUser) {
         try {
           return JSON.parse(savedUser);
-        } catch (error) {
+    } catch (error) {
           console.error('Erro ao ler usuário do armazenamento local:', error);
         }
       }
@@ -60,9 +60,9 @@ export default function CompletarCadastro() {
       } catch (error) {
         console.error('Erro ao salvar usuário no armazenamento local:', error);
       }
-        } catch (error) {
+    } catch (error) {
           console.error('Erro ao salvar usuário no armazenamento local:', error);
-        const message =
+      const message =
         error.name === 'TypeError'
           ? 'Erro de conexão. Verifique se o backend está rodando.'
           : error.message;

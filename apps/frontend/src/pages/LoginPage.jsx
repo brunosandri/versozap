@@ -68,6 +68,27 @@ export default function LoginPage() {
     }
   };
 
+  const redirectToOAuth = async (provider) => {
+    setErrors({});
+    try {
+      const response = await fetch(apiUrl('/api/auth/urls'));
+      const data = await parseJsonResponse(response);
+      const url = data?.urls?.[provider];
+
+      if (!url) {
+        throw new Error(`URL de autenticação ${provider} não configurada.`);
+      }
+
+      window.location.href = url;
+    } catch (err) {
+      const message =
+        err.name === 'TypeError'
+          ? 'Erro de conexão. Verifique se o backend está rodando.'
+          : err.message;
+      setErrors({ api: message });
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <header className="w-full border-b">
@@ -142,7 +163,7 @@ export default function LoginPage() {
             <div className="space-y-3">
               <button
                 type="button"
-                onClick={() => window.location.href = apiUrl('/api/auth/google/callback')}
+                onClick={() => redirectToOAuth('google')}
                 className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
               >
                 <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
@@ -156,7 +177,7 @@ export default function LoginPage() {
 
               <button
                 type="button"
-                onClick={() => window.location.href = apiUrl('/api/auth/facebook/callback')}
+                onClick={() => redirectToOAuth('facebook')}
                 className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
               >
                 <svg className="w-5 h-5 mr-2" fill="#1877F2" viewBox="0 0 24 24">
