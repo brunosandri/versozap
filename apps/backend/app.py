@@ -962,9 +962,9 @@ def admin_cleanup_database():
         result = db_manager.cleanup_old_data(days_old)
         
         if result:
-            log_success(LogCategory.DATABASE, f"Limpeza concluída: {result}")
+            log_success(LogCategory.DATABASE, f"Limpeza concluida: {result}")
             return jsonify({
-                "mensagem": "Limpeza concluída",
+                "mensagem": "Limpeza concluida",
                 "resultado": result,
                 "timestamp": datetime.now().isoformat()
             })
@@ -974,6 +974,29 @@ def admin_cleanup_database():
     except Exception as e:
         log_error(LogCategory.DATABASE, "Erro na limpeza do banco", error=e)
         return jsonify({"erro": "Erro na limpeza"}), 500
+
+@app.post("/admin/database/reset-users")
+def admin_reset_user_data():
+    """Remove todos os dados de usuarios e registros derivados."""
+    try:
+        payload = request.get_json(silent=True) or {}
+        confirm = str(payload.get("confirm", "")).strip().upper()
+        if confirm != "RESETAR":
+            return jsonify({"erro": "Confirmacao invalida. Envie confirm=RESETAR."}), 400
+
+        result = db_manager.reset_user_data()
+        if result:
+            log_success(LogCategory.DATABASE, f"Reset de dados concluido: {result}")
+            return jsonify({
+                "mensagem": "Dados de usuarios removidos com sucesso",
+                "resultado": result,
+                "timestamp": datetime.now().isoformat()
+            })
+
+        return jsonify({"erro": "Falha ao resetar dados"}), 500
+    except Exception as e:
+        log_error(LogCategory.DATABASE, "Erro ao resetar dados de usuarios", error=e)
+        return jsonify({"erro": "Erro ao resetar dados"}), 500
 
 @app.post("/admin/database/optimize")
 def admin_optimize_database():

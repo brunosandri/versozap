@@ -62,6 +62,15 @@ class DatabaseManager:
                 "error": error_message
             })
             conn.commit()
+
+    def _table_exists(self, table_name):
+        """Verifica se uma tabela existe no banco atual."""
+        try:
+            inspector = inspect(self.engine)
+            return table_name in inspector.get_table_names()
+        except Exception as e:
+            logger.error(f"Erro ao verificar tabela {table_name}: {e}")
+            return False
     
     def execute_migration(self, migration_name, migration_sql):
         """Executa uma migration específica"""
@@ -293,6 +302,54 @@ class DatabaseManager:
             
         except Exception as e:
             logger.error(f"Erro na limpeza: {e}")
+            return None
+
+    def reset_user_data(self):
+        """Remove todos os dados de usuários e dados derivados, preservando logs e migrations."""
+        try:
+            with self.engine.connect() as conn:
+                deleted_queue = 0
+                deleted_readings = 0
+                deleted_stats = 0
+                deleted_users = 0
+
+                if self._table_exists("message_queue"):
+                    result = conn.execute(text("DELETE FROM message_queue"))
+                    deleted_queue = result.rowcount or 0
+
+                if self._table_exists("leituras"):
+                    result = conn.execute(text("DELETE FROM leituras"))
+                    deleted_readings = result.rowcount or 0
+
+                if self._table_exists("reading_stats"):
+                    result = conn.execute(text("DELETE FROM reading_stats"))
+                    deleted_stats = result.rowcount or 0
+
+                if self._table_exists("usuarios"):
+                    result = conn.execute(text("DELETE FROM usuarios"))
+                    deleted_users = result.rowcount or 0
+
+                if self.database_url.startswith('sqlite') and self._table_exists("sqlite_sequence"):
+                    conn.execute(text("DELETE FROM sqlite_sequence WHERE name IN ('usuarios', 'leituras', 'message_queue', 'reading_stats')"))
+
+                conn.commit()
+
+            logger.info(
+                "Reset de dados concluido: %s usuarios, %s leituras, %s filas, %s estatisticas removidos",
+                deleted_users,
+                deleted_readings,
+                deleted_queue,
+                deleted_stats,
+            )
+            return {
+                "users_removed": deleted_users,
+                "readings_removed": deleted_readings,
+                "queue_removed": deleted_queue,
+                "stats_removed": deleted_stats,
+            }
+
+        except Exception as e:
+            logger.error(f"Erro ao resetar dados de usuarios: {e}")
             return None
     
     def optimize_database(self):
