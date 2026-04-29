@@ -81,7 +81,7 @@ CORS(
     app,
     resources={
         r"/api/*": {
-           
+            "origins": allowed_origins,
             "allow_headers": ["Content-Type", "Authorization"],
             "methods": ["GET", "POST", "PUT", "OPTIONS"],
         }

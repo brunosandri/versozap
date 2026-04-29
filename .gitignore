@@ -10,6 +10,13 @@ build/
 .next/
 coverage/
 
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+pytest-cache-files-*/
+
 # Env
 .env
 .env.*

@@ -5,7 +5,7 @@ Gerenciador de banco de dados e sistema de migrations para VersoZap
 
 import os
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.orm import sessionmaker
 from database import Base, engine, SessionLocal
@@ -78,12 +78,12 @@ class DatabaseManager:
             
             # Registra sucesso
             self.record_migration(migration_name, success=True)
-            logger.info(f"✅ Migration {migration_name} executada com sucesso")
+            logger.info(f"Migration {migration_name} executada com sucesso")
             return True
             
         except Exception as e:
             error_msg = str(e)
-            logger.error(f"❌ Erro na migration {migration_name}: {error_msg}")
+            logger.error(f"Erro na migration {migration_name}: {error_msg}")
             self.record_migration(migration_name, success=False, error_message=error_msg)
             return False
     
@@ -101,10 +101,10 @@ class DatabaseManager:
         ]
         
         if not pending_migrations:
-            logger.info("✅ Todas as migrations já foram executadas")
+            logger.info("Todas as migrations ja foram executadas")
             return True
         
-        logger.info(f"📦 Executando {len(pending_migrations)} migration(s) pendente(s)")
+        logger.info(f"Executando {len(pending_migrations)} migration(s) pendente(s)")
         
         success_count = 0
         for migration_name in pending_migrations:
@@ -112,10 +112,10 @@ class DatabaseManager:
             if self.execute_migration(migration_name, migration_sql):
                 success_count += 1
             else:
-                logger.error(f"❌ Falha na migration {migration_name}. Parando execução.")
+                logger.error(f"Falha na migration {migration_name}. Parando execucao.")
                 break
         
-        logger.info(f"✅ {success_count}/{len(pending_migrations)} migrations executadas com sucesso")
+        logger.info(f"{success_count}/{len(pending_migrations)} migrations executadas com sucesso")
         return success_count == len(pending_migrations)
     
     def get_all_migrations(self):
@@ -229,14 +229,14 @@ class DatabaseManager:
                 db_file = self.database_url.replace('sqlite:///', '')
                 import shutil
                 shutil.copy2(db_file, backup_path)
-                logger.info(f"✅ Backup criado: {backup_path}")
+                logger.info(f"Backup criado: {backup_path}")
                 return backup_path
             else:
                 logger.warning("Backup automático disponível apenas para SQLite")
                 return None
                 
         except Exception as e:
-            logger.error(f"❌ Erro ao criar backup: {e}")
+            logger.error(f"Erro ao criar backup: {e}")
             return None
     
     def get_database_info(self):
@@ -288,11 +288,11 @@ class DatabaseManager:
                 
                 conn.commit()
             
-            logger.info(f"🧹 Limpeza concluída: {deleted_logs} logs e {deleted_readings} leituras removidas")
+            logger.info(f"Limpeza concluida: {deleted_logs} logs e {deleted_readings} leituras removidas")
             return {"logs_removed": deleted_logs, "readings_removed": deleted_readings}
             
         except Exception as e:
-            logger.error(f"❌ Erro na limpeza: {e}")
+            logger.error(f"Erro na limpeza: {e}")
             return None
     
     def optimize_database(self):
@@ -302,14 +302,14 @@ class DatabaseManager:
                 with self.engine.connect() as conn:
                     conn.execute(text("VACUUM"))
                     conn.commit()
-                logger.info("✅ Banco de dados otimizado (VACUUM executado)")
+                logger.info("Banco de dados otimizado (VACUUM executado)")
                 return True
             else:
                 logger.warning("Otimização automática disponível apenas para SQLite")
                 return False
                 
         except Exception as e:
-            logger.error(f"❌ Erro na otimização: {e}")
+            logger.error(f"Erro na otimizacao: {e}")
             return False
 
 # Instância global
@@ -317,14 +317,14 @@ db_manager = DatabaseManager()
 
 def initialize_database():
     """Função principal para inicializar o banco de dados"""
-    logger.info("🗄️ Inicializando banco de dados...")
+    logger.info("Inicializando banco de dados...")
     
     # Executa migrations
     if db_manager.run_migrations():
-        logger.info("✅ Banco de dados inicializado com sucesso")
+        logger.info("Banco de dados inicializado com sucesso")
         return True
     else:
-        logger.error("❌ Falha na inicialização do banco de dados")
+        logger.error("Falha na inicializacao do banco de dados")
         return False
 
 if __name__ == "__main__":
@@ -333,6 +333,6 @@ if __name__ == "__main__":
     
     # Mostra informações do banco
     info = db_manager.get_database_info()
-    print("\n📊 Informações do Banco de Dados:")
+    print("\nInformacoes do Banco de Dados:")
     for key, value in info.items():
         print(f"  {key}: {value}")
