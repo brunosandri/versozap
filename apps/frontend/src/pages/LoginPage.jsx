@@ -50,12 +50,25 @@ export default function LoginPage() {
       localStorage.setItem('versozap_token', token);
       localStorage.setItem('versozap_user', JSON.stringify(user));
 
-      // Verifica se usuário precisa completar cadastro
       if (!user.telefone) {
         navigate('/completar-cadastro');
-      } else {
-        navigate('/dashboard');
+        return;
       }
+
+      try {
+        const whatsappRes = await fetch(apiUrl('/api/whatsapp/status'));
+        const whatsappData = await parseJsonResponse(whatsappRes);
+
+        if (whatsappData?.whatsappStatus === 'connected' || whatsappData?.status === 'connected') {
+          navigate('/dashboard');
+          return;
+        }
+      } catch (error) {
+        console.warn('Falha ao verificar status do WhatsApp após login:', error);
+      }
+
+      // Usuário já tem telefone, mas ainda precisa vincular o WhatsApp
+      navigate('/configurar-whatsapp');
     } catch (err) {
       console.error('Erro no login:', err);
       if (err.name === 'TypeError' && err.message.includes('fetch')) {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiUrl } from '../utils/api';
+import { apiUrl, parseJsonResponse } from '../utils/api';
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
@@ -15,16 +15,49 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem('versozap_token');
-    const userData = localStorage.getItem('versozap_user');
+    let mounted = true;
 
-    if (!token || !userData) {
-      navigate('/login');
-      return;
-    }
+    const bootstrap = async () => {
+      const token = localStorage.getItem('versozap_token');
+      const userData = localStorage.getItem('versozap_user');
 
-    setUser(JSON.parse(userData));
-    loadUserData();
+      if (!token || !userData) {
+        navigate('/login');
+        return;
+      }
+
+      const parsedUser = JSON.parse(userData);
+      setUser(parsedUser);
+
+      if (!parsedUser.telefone) {
+        navigate('/completar-cadastro');
+        return;
+      }
+
+      try {
+        const response = await fetch(apiUrl('/api/whatsapp/status'));
+        const data = await parseJsonResponse(response);
+
+        if (data?.whatsappStatus !== 'connected' && data?.status !== 'connected') {
+          navigate('/configurar-whatsapp');
+          return;
+        }
+      } catch (error) {
+        console.error('Erro ao verificar conexão do WhatsApp:', error);
+        navigate('/configurar-whatsapp');
+        return;
+      }
+
+      if (mounted) {
+        loadUserData();
+      }
+    };
+
+    bootstrap();
+
+    return () => {
+      mounted = false;
+    };
   }, [navigate]);
 
   const loadUserData = async () => {
