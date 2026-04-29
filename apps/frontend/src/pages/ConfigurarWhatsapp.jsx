@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiUrl } from '../utils/api';
 
+const DEFAULT_SENDER_URL = 'https://sender-production-40b5.up.railway.app';
+
 export default function ConfigurarWhatsapp() {
   const [qrCode, setQrCode] = useState(null);
   const [qrCodeAscii, setQrCodeAscii] = useState(null);
@@ -22,6 +24,8 @@ export default function ConfigurarWhatsapp() {
     if (envUrl) {
       urls.push(envUrl.replace(/\/$/, ''));
     }
+
+    urls.push(DEFAULT_SENDER_URL);
 
     if (typeof window !== 'undefined') {
       const { hostname } = window.location;
