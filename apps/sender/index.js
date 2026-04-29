@@ -639,10 +639,6 @@ app.post('/clear-queue', requireAuth, (req, res) => {
 
 const port = process.env.PORT || 8080;
 
-startVenomClient().catch((error) => {
-  console.error('❌ Falha inicial ao conectar com o WhatsApp:', error.message);
-});
-
 app.get('/qrcode', async (req, res) => {
   try {
     if (connectionStatus === 'connected') {
@@ -802,4 +798,10 @@ app.listen(port, () => {
     console.log(`📱 Status inicial: ${connectionStatus}`);
     console.log(`⚙️ Rate limit: ${config.rateLimitDelay}ms entre mensagens`);
     console.log(`🎵 Formatos de áudio suportados: ${config.audioFormats.join(', ')}`);
+
+    setImmediate(() => {
+      startVenomClient().catch((error) => {
+        console.error('❌ Falha inicial ao conectar com o WhatsApp:', error.message);
+      });
+    });
 });
