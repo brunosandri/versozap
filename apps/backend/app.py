@@ -6,6 +6,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from gtts import gTTS
 from datetime import datetime, timedelta, date
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.exceptions import HTTPException
 import os, re, requests, time
 from dotenv import load_dotenv
 from sqlalchemy.exc import IntegrityError
@@ -101,6 +102,18 @@ def apply_cors_headers(resp):
             resp.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
             resp.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,OPTIONS"
     return resp
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(error):
+    if isinstance(error, HTTPException):
+        return error
+
+    log_error(LogCategory.SYSTEM, "Erro n?o tratado na aplica??o", error=error)
+
+    if request.path.startswith("/api/") or request.path.startswith("/enviar"):
+        return jsonify(error="Erro interno ao processar a requisi??o"), 500
+
+    return "Erro interno no servidor", 500
 
 # ---------------------------------------------------------------------------
 # Utilidades
