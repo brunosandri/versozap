@@ -20,7 +20,9 @@ Use uma plataforma com processo Node.js persistente, como Railway, Render ou ser
 
 1. Configure `SENDER_AUTH_TOKEN` no sender.
 2. Configure o mesmo `SENDER_AUTH_TOKEN` no backend.
-3. Configure `SENDER_URL` no backend com a URL base do sender, sem caminho de endpoint. Exemplo: `https://seu-sender.up.railway.app`.
+3. Configure `SENDER_URL` no backend com a URL base do sender, sem caminho de endpoint. Exemplo: `https://sender-production-40b5.up.railway.app`.
+
+Projeto Railway: https://railway.com/project/57b34133-4146-44c7-a2bb-2f169f8b900d
 
 Deploy em Vercel/serverless não é indicado para este serviço porque a função pode encerrar antes do Chromium gerar o QR Code ou manter a sessão.
 

@@ -2,7 +2,7 @@ import { useFetcher } from "react-router";
 import { useState } from "react";
 import type { Route } from "./+types/configuracoes";
 
-export async function action({ request }: Route.ActionArgs) {
+export async function clientAction({ request }: Route.ClientActionArgs) {
   const formData = await request.formData();
   const action = formData.get("action");
   
@@ -13,7 +13,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function Configuracoes() {
-  const fetcher = useFetcher<typeof action>();
+  const fetcher = useFetcher<typeof clientAction>();
   const [activeTab, setActiveTab] = useState("sistema");
 
   const tabs = [
@@ -165,7 +165,7 @@ export default function Configuracoes() {
                     <input
                       type="url"
                       name="sender_url"
-                      defaultValue="https://versozap-sender-git-main-versozap.vercel.app"
+                      defaultValue="https://sender-production-40b5.up.railway.app"
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
                     />
                   </div>

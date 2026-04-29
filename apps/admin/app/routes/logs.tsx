@@ -2,7 +2,7 @@ import { useLoaderData } from "react-router";
 import { useState } from "react";
 import type { Route } from "./+types/logs";
 
-export async function loader({}: Route.LoaderArgs) {
+export async function clientLoader({}: Route.ClientLoaderArgs) {
   // Mock data para logs - em produção viria do backend
   const mockLogs = [
     {
@@ -59,7 +59,7 @@ export async function loader({}: Route.LoaderArgs) {
 }
 
 export default function Logs() {
-  const { logs } = useLoaderData<typeof loader>();
+  const { logs } = useLoaderData<typeof clientLoader>();
   const [filterLevel, setFilterLevel] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");

@@ -1,7 +1,7 @@
 import { useLoaderData } from "react-router";
 import type { Route } from "./+types/dashboard";
 
-export async function loader({}: Route.LoaderArgs) {
+export async function clientLoader({}: Route.ClientLoaderArgs) {
   // Em produção, estes dados virão da API do backend
   try {
     const response = await fetch("https://versozap-backend.onrender.com/usuarios");
@@ -39,7 +39,7 @@ export async function loader({}: Route.LoaderArgs) {
 }
 
 export default function Dashboard() {
-  const { stats, usuarios } = useLoaderData<typeof loader>();
+  const { stats, usuarios } = useLoaderData<typeof clientLoader>();
 
   const statCards = [
     {

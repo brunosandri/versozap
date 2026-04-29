@@ -27,7 +27,7 @@ cd apps/admin    && npm install && npm run dev
 cd apps/sender   && npm ci && npm run dev
 ```
 
-Para o envio por WhatsApp, mantenha o `apps/sender` rodando como processo persistente e configure o backend com `SENDER_URL` apontando para a URL base do sender, por exemplo `http://localhost:3000`.
+Para o envio por WhatsApp, mantenha o `apps/sender` rodando como processo persistente no Railway e configure o backend com `SENDER_URL` apontando para a URL pública do serviço sender, por exemplo `https://sender-production-40b5.up.railway.app`.
 
 ## Próximos passos opcionais
 

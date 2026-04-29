@@ -2,7 +2,7 @@ import { useLoaderData, useFetcher } from "react-router";
 import { useState } from "react";
 import type { Route } from "./+types/usuarios";
 
-export async function loader({}: Route.LoaderArgs) {
+export async function clientLoader({}: Route.ClientLoaderArgs) {
   try {
     const response = await fetch("https://versozap-backend.onrender.com/usuarios");
     if (response.ok) {
@@ -47,7 +47,7 @@ export async function loader({}: Route.LoaderArgs) {
   };
 }
 
-export async function action({ request }: Route.ActionArgs) {
+export async function clientAction({ request }: Route.ClientActionArgs) {
   const formData = await request.formData();
   const action = formData.get("action");
   
@@ -62,8 +62,8 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function Usuarios() {
-  const { usuarios } = useLoaderData<typeof loader>();
-  const fetcher = useFetcher();
+  const { usuarios } = useLoaderData<typeof clientLoader>();
+  const fetcher = useFetcher<typeof clientAction>();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterBy, setFilterBy] = useState("all");
 

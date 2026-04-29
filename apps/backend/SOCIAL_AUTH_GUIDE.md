@@ -77,7 +77,7 @@ Crie o arquivo `.env` baseado no `.env.example`:
 
 ```bash
 # URLs
-SENDER_URL=http://localhost:3000/enviar
+SENDER_URL=https://sender-production-40b5.up.railway.app
 FRONTEND_URL=http://localhost:5173
 BACKEND_URL=http://localhost:5000
 
