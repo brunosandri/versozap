@@ -163,7 +163,7 @@ class AuthService:
         Returns:
             dict: URLs de autenticação
         """
-        base_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+        base_url = os.getenv("FRONTEND_URL", "https://versozapfrontend.netlify.app")
         backend_url = os.getenv("BACKEND_URL", "http://localhost:5000")
         
         google_url = (

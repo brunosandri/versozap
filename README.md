@@ -43,6 +43,7 @@ Para o envio por WhatsApp, mantenha o `apps/sender` rodando como processo persis
 
 O frontend está configurado para deploy estático via Netlify usando `netlify.toml`.
 Configure `VITE_API_URL` no ambiente do deploy com a URL pública do backend: `https://versozap-production.up.railway.app`.
+URL atual do frontend: `https://versozapfrontend.netlify.app`.
 Para usar `app.versozap.com.br`, aponte o DNS do subdomínio para o host fornecido pelo Netlify.
 
 ## Próximos passos opcionais

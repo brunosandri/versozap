@@ -59,7 +59,7 @@ npm start          # Start WhatsApp sender service
 
 ## Infrastructure
 
-- **Frontend**: Deployed as static app (app.versozap.com.br)
+- **Frontend**: Deployed on Netlify (https://versozapfrontend.netlify.app)
 - **Backend**: Deployed as persistent API service
 - **Sender**: Deployed on Railway (project: https://railway.com/project/57b34133-4146-44c7-a2bb-2f169f8b900d)
 - **Database**: SQLite with SQLAlchemy ORM

@@ -78,7 +78,7 @@ Crie o arquivo `.env` baseado no `.env.example`:
 ```bash
 # URLs
 SENDER_URL=https://sender-production-40b5.up.railway.app
-FRONTEND_URL=http://localhost:5173
+FRONTEND_URL=https://versozapfrontend.netlify.app
 BACKEND_URL=http://localhost:5000
 
 # Banco de dados

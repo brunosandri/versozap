@@ -50,7 +50,7 @@ EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 def _load_frontend_origins() -> list[str]:
     """Carrega os domínios permitidos para o frontend."""
-    default_frontend = "https://app.versozap.com.br"
+    default_frontend = "https://versozapfrontend.netlify.app"
 
     # Permite sobrescrever por meio de variável de ambiente, suportando múltiplos domínios
     # separados por vírgula (ex.: "https://app...,http://localhost:5173").
